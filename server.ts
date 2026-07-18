@@ -1,3 +1,4 @@
+process.env.GEMINI_API_KEY = "AIzaSyC4V6fCSqUh6HtAFCNiMSocJqS4rsAkFBk";
 import express from "express";
 import path from "path";
 import { createServer as createViteServer } from "vite";
@@ -5,8 +6,15 @@ import http from "http";
 import { Server } from "socket.io";
 import dotenv from "dotenv";
 import crypto from "crypto";
+import fsSync from "fs";
+import fs from "fs/promises";
 
 dotenv.config();
+
+const ASSETS_FILE = path.join(process.cwd(), "assets.json");
+if (!fsSync.existsSync(ASSETS_FILE)) {
+  fsSync.writeFileSync(ASSETS_FILE, JSON.stringify([]));
+}
 
 // import { Queue, Worker } from "bullmq"; // Mocking queues for preview
 
@@ -18,7 +26,16 @@ async function startServer() {
   });
   const PORT = 3000;
 
-  app.use(express.json());
+  app.use(express.json({ limit: '10mb' }));
+
+  app.get("/api/pod-assets", async (req, res) => {
+    try {
+      const data = await fs.readFile(ASSETS_FILE, "utf-8");
+      res.json(JSON.parse(data));
+    } catch (e) {
+      res.status(500).json({ error: "Failed to read assets" });
+    }
+  });
 
   // Socket.io integration
   io.on("connection", (socket) => {
@@ -50,42 +67,55 @@ async function startServer() {
   });
 
   apiRouter.post("/ai-studio/generate", (req, res) => {
-    const { prompt } = req.body;
+    const { listingInfo } = req.body;
     const jobId = Math.random().toString(36).substring(7);
     
     // Process asynchronously
     (async () => {
       try {
-        io.emit("task_progress", { jobId, progress: 10, message: "Starting generation pipeline..." });
+        io.emit("task_progress", { jobId, progress: 10, message: "Analyzing listing and generating design prompt with Gemini..." });
         
         let imageUrl = "https://placehold.co/600x400/png?text=Mockup";
-        let mockupUrl = "https://placehold.co/600x400/png?text=Lifestyle+Mockup";
+        let mockupUrls: string[] = [];
+        let designPrompt = "";
+
+        // @ts-ignore
+        const { GoogleGenAI } = await import("@google/genai");
+        const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY, httpOptions: { headers: { "User-Agent": "aistudio-build" } } });
         
-        // 1. Runware API Image Generation
-        if (process.env.RUNWARE_API_KEY) {
-          io.emit("task_progress", { jobId, progress: 30, message: "Generating design and mockup with Runware..." });
+        if (process.env.GEMINI_API_KEY && listingInfo) {
           try {
-            const runwareRes = await fetch("https://api.runware.ai/v1", {
+            const analyzePrompt = `You are an expert product designer. Analyze the following Etsy listing to understand the core product design.
+Listing Title: ${listingInfo.title}
+Listing Tags: ${listingInfo.tags ? listingInfo.tags.join(', ') : ''}
+
+Write a highly detailed text-to-image prompt to generate a new, unique design inspired by this product. 
+CRITICAL RULE: The prompt MUST describe ONLY a flat, 2D print-ready design on a solid white background. Do NOT describe a mockup, a t-shirt, a person, or a physical product. Only describe the artwork itself.
+Output ONLY the prompt string.`;
+
+            const aiRes = await ai.models.generateContent({
+              model: "gemini-2.0-flash",
+              contents: analyzePrompt
+            });
+            if (aiRes.text) designPrompt = aiRes.text.trim();
+          } catch (err) {
+            console.error("Gemini design prompt generation failed:", err);
+          }
+        }
+
+        if (process.env.RUNWARE_API_KEY) {
+          io.emit("task_progress", { jobId, progress: 30, message: "Generating flat design with Runware..." });
+          try {
+            // Task 1: Generate the flat design
+            const runwareRes1 = await fetch("https://api.runware.ai/v1", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify([
-                {
-                  taskType: "authentication",
-                  apiKey: process.env.RUNWARE_API_KEY
-                },
+                { taskType: "authentication", apiKey: process.env.RUNWARE_API_KEY },
                 {
                   taskType: "imageInference",
                   taskUUID: crypto.randomUUID(),
-                  positivePrompt: `Create a flat, high quality print-ready POD product design on a pure white background (NOT a mockup, just the design itself) for: ${prompt}`,
-                  width: 512,
-                  height: 512,
-                  numberResults: 1,
-                  model: "rundiffusion:120@100"
-                },
-                {
-                  taskType: "imageInference",
-                  taskUUID: crypto.randomUUID(),
-                  positivePrompt: `Create a professional lifestyle product photography mockup of a person wearing a t-shirt featuring this design concept, aesthetic cinematic lighting, highly detailed: ${prompt}`,
+                  positivePrompt: `High quality flat vector design on a pure white background, print-ready, isolated. ${designPrompt}`,
                   width: 512,
                   height: 512,
                   numberResults: 1,
@@ -93,17 +123,12 @@ async function startServer() {
                 }
               ])
             });
-            if (runwareRes.ok) {
-              const runwareData = await runwareRes.json();
-              // The data array might contain results for both tasks if they succeed
-              const images = runwareData.data?.filter((d: any) => d.imageURL) || [];
-              if (images.length > 0) {
-                imageUrl = images[0].imageURL;
-                if (images.length > 1) {
-                  mockupUrl = images[1].imageURL;
-                } else {
-                  mockupUrl = imageUrl;
-                }
+            
+            if (runwareRes1.ok) {
+              const runwareData1 = await runwareRes1.json();
+              const images1 = runwareData1.data?.filter((d: any) => d.imageURL) || [];
+              if (images1.length > 0) {
+                imageUrl = images1[0].imageURL;
               }
             }
           } catch (e) {
@@ -111,22 +136,24 @@ async function startServer() {
           }
         }
         
-        io.emit("task_progress", { jobId, progress: 60, message: "Generating SEO title and description with Gemini..." });
+        io.emit("task_progress", { jobId, progress: 75, message: "Generating SEO title and description with Gemini..." });
         
         let title = "Generated Design";
-        let description = "Description based on: " + prompt;
+        let description = "Description based on: " + designPrompt;
         let tags: string[] = [];
         
-        // 2. Gemini API Content Generation
         if (process.env.GEMINI_API_KEY) {
           try {
-            // @ts-ignore
-            const { GoogleGenAI } = await import("@google/genai");
-            const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY, httpOptions: { headers: { "User-Agent": "aistudio-build" } } });
-            
-            const geminiPrompt = `You are an expert Etsy copywriter and SEO specialist. Based on the following prompt, generate a product listing.
+            let seoPrompt = `You are an expert Etsy copywriter and SEO specialist. Based on the following product design prompt, generate a product listing.
+Design Prompt: ${designPrompt}`;
 
-CRITICAL RULES:
+            if (listingInfo) {
+              seoPrompt += `\n\nAlso consider this original listing for context and inspiration:
+Original Title: ${listingInfo.title}
+Original Tags: ${listingInfo.tags ? listingInfo.tags.join(', ') : ''}`;
+            }
+
+            seoPrompt += `\n\nCRITICAL RULES:
 1. Title MUST be 100 characters maximum.
 2. You MUST provide exactly 13 tags.
 3. Each tag MUST be 20 characters maximum.
@@ -134,18 +161,16 @@ CRITICAL RULES:
 5. Description MUST include sections on: Why buy this product, Who is it for, Where to use it.
 6. The entire text must be highly optimized for AI-driven search and traditional SEO.
 
-Prompt: ${prompt}
-
 Return the response in JSON format exactly like this schema:
 {
   "title": "A highly optimized title (max 100 chars)",
   "description": "A compelling description with keywords, at least 1500 chars...",
   "tags": ["tag1", "tag2"] // Exactly 13 tags
 }`;
-            
+
             const response = await ai.models.generateContent({
-              model: "gemini-3.5-flash",
-              contents: geminiPrompt,
+              model: "gemini-2.0-flash",
+              contents: seoPrompt,
               config: {
                 responseMimeType: "application/json",
                 responseSchema: {
@@ -154,32 +179,59 @@ Return the response in JSON format exactly like this schema:
                     title: { type: "string" },
                     description: { type: "string" },
                     tags: { type: "array", items: { type: "string" } }
-                  },
-                  required: ["title", "description", "tags"]
+                  }
                 }
               }
             });
-            const contentData = JSON.parse(response.text?.trim() || "{}");
-            if (contentData.title) title = contentData.title;
-            if (contentData.description) description = contentData.description;
-            if (contentData.tags) tags = contentData.tags;
+            
+            if (response.text) {
+              try {
+                const jsonStr = response.text.replace(/```json/g, '').replace(/```/g, '').trim();
+                const parsed = JSON.parse(jsonStr);
+                title = parsed.title;
+                description = parsed.description;
+                tags = parsed.tags;
+              } catch (parseError) {
+                console.error("JSON parse failed. Raw response:", response.text.substring(0, 500) + '...');
+                // Fallback
+                title = "Generated Design";
+                description = "Failed to parse description from AI.";
+                tags = ["design", "art", "custom"];
+              }
+            }
           } catch (e) {
-            console.error("Gemini generation failed:", e);
+            console.error("Gemini generation failed", e);
           }
         }
         
         io.emit("task_progress", { jobId, progress: 90, message: "Finalizing..." });
         
+        const resultData = { 
+          title, 
+          description,
+          tags,
+          imageUrl,
+          mockupUrls
+        };
+
+        // Save to JSON DB
+        try {
+          const raw = await fs.readFile(ASSETS_FILE, "utf-8");
+          const assets = JSON.parse(raw);
+          assets.unshift({
+            id: crypto.randomUUID(),
+            ...resultData,
+            createdAt: new Date().toISOString()
+          });
+          await fs.writeFile(ASSETS_FILE, JSON.stringify(assets, null, 2));
+        } catch (dbErr) {
+          console.error("Failed to save to assets DB:", dbErr);
+        }
+
         setTimeout(() => {
           io.emit("task_complete", { 
             jobId, 
-            result: { 
-              title, 
-              description,
-              tags,
-              imageUrl,
-              mockupUrl
-            } 
+            result: resultData
           });
         }, 1000);
 
@@ -198,6 +250,8 @@ Return the response in JSON format exactly like this schema:
 
     res.json({ status: "queued", jobId });
   });
+
+
 
   apiRouter.post("/ai-studio/analyze-listing", async (req, res) => {
     try {
@@ -235,7 +289,7 @@ Return the response in JSON format exactly like this schema:
       `;
 
       const response = await ai.models.generateContent({
-        model: "gemini-3.5-flash",
+        model: "gemini-2.0-flash",
         contents: prompt,
         config: {
           responseMimeType: "application/json",
@@ -252,7 +306,8 @@ Return the response in JSON format exactly like this schema:
         }
       });
 
-      const jsonStr = response.text?.trim() || "{}";
+      let jsonStr = response.text?.trim() || "{}";
+      jsonStr = jsonStr.replace(/```json/g, '').replace(/```/g, '').trim();
       const data = JSON.parse(jsonStr);
       searchCache.set(`listing_${title}_${tags?.join(',')}`.toLowerCase(), { timestamp: Date.now(), data });
 
@@ -299,7 +354,7 @@ Return the response in JSON format exactly like this schema:
       `;
 
       const response = await ai.models.generateContent({
-        model: "gemini-3.5-flash",
+        model: "gemini-2.0-flash",
         contents: prompt,
         config: {
           responseMimeType: "application/json",
@@ -316,7 +371,8 @@ Return the response in JSON format exactly like this schema:
         }
       });
 
-      const jsonStr = response.text?.trim() || "{}";
+      let jsonStr = response.text?.trim() || "{}";
+      jsonStr = jsonStr.replace(/```json/g, '').replace(/```/g, '').trim();
       const data = JSON.parse(jsonStr);
       searchCache.set(`shop_${shopName}`.toLowerCase(), { timestamp: Date.now(), data });
 
@@ -363,7 +419,7 @@ Return the response in JSON format exactly like this schema:
       `;
 
       const response = await ai.models.generateContent({
-        model: "gemini-3.5-flash",
+        model: "gemini-2.0-flash",
         contents: prompt,
         config: {
           responseMimeType: "application/json",
@@ -382,7 +438,8 @@ Return the response in JSON format exactly like this schema:
         }
       });
 
-      const jsonStr = response.text?.trim() || "{}";
+      let jsonStr = response.text?.trim() || "{}";
+      jsonStr = jsonStr.replace(/```json/g, '').replace(/```/g, '').trim();
       const data = JSON.parse(jsonStr);
       searchCache.set(`keyword_${keyword}`.toLowerCase(), { timestamp: Date.now(), data });
 
@@ -411,7 +468,7 @@ Return the response in JSON format exactly like this schema:
       }
 
       const apiKey = process.env.ETSY_API_KEY;
-      const sharedSecret = process.env.ETSY_SHARED_SECRET || process.env.ETSY_API_SECRET;
+      const sharedSecret = process.env.ETSY_API_SECRET;
       
       if (!apiKey) {
         return res.status(500).json({ error: "ETSY_API_KEY is not configured" });
@@ -499,7 +556,7 @@ Return the response in JSON format exactly like this schema:
     try {
       const { id } = req.params;
       const apiKey = process.env.ETSY_API_KEY;
-      const sharedSecret = process.env.ETSY_SHARED_SECRET;
+      const sharedSecret = process.env.ETSY_API_SECRET;
       if (!apiKey) return res.status(500).json({ error: "ETSY_API_KEY is not configured" });
 
       const headerValue = sharedSecret ? `${apiKey}:${sharedSecret}` : apiKey;
@@ -528,7 +585,7 @@ Return the response in JSON format exactly like this schema:
     try {
       const { id } = req.params;
       const apiKey = process.env.ETSY_API_KEY;
-      const sharedSecret = process.env.ETSY_SHARED_SECRET;
+      const sharedSecret = process.env.ETSY_API_SECRET;
       if (!apiKey) return res.status(500).json({ error: "ETSY_API_KEY is not configured" });
 
       const headerValue = sharedSecret ? `${apiKey}:${sharedSecret}` : apiKey;

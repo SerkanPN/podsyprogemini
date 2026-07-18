@@ -299,6 +299,14 @@ export default function ListingDetail() {
               View on Etsy
               <ExternalLink className="w-4 h-4" />
             </a>
+
+            <Link 
+              to={`/ai-studio?cloneId=${id}`} 
+              className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-sm font-bold uppercase tracking-wider shadow-md transition-colors mb-3"
+            >
+              <Sparkles className="w-4 h-4" /> AI Clone
+            </Link>
+
             <button
               onClick={() => toggleListing({ id: id as string, title, image: image || undefined, shopName: shop?.shop_name })}
               className={`w-full flex items-center justify-center gap-2 px-4 py-3 border rounded-lg text-sm font-bold transition-colors ${

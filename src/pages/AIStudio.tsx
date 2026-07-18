@@ -6,30 +6,55 @@ import { cn } from '../lib/utils';
 
 export default function AIStudio() {
   const [searchParams] = useSearchParams();
-  const [prompt, setPrompt] = useState(searchParams.get('prompt') || '');
-  useEffect(() => {
-    const p = searchParams.get('prompt');
-    if (p) setPrompt(p);
-  }, [searchParams]);
+  const [cloneId, setCloneId] = useState(searchParams.get('cloneId') || '');
+  const [listingInfo, setListingInfo] = useState<any>(null);
+  const [loadingListing, setLoadingListing] = useState(false);
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
   const tasks = useSocketStore(state => state.tasks);
 
-  const handleGenerate = async () => {
-    if (!prompt) return;
+  const handleGenerate = async (info?: any) => {
     try {
       const res = await fetch('/api/ai-studio/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt })
+        body: JSON.stringify({ listingInfo: info || listingInfo })
       });
+      
+      if (!res.ok) {
+        throw new Error(`Server returned ${res.status}`);
+      }
+      
       const data = await res.json();
       if (data.jobId) {
         setActiveJobId(data.jobId);
+      } else {
+        alert("Failed to queue generation. Please try again.");
       }
     } catch (e) {
-      console.warn('Failed to start generation, server might be restarting...', e);
+      console.warn('Failed to start generation:', e);
+      alert("Failed to start generation. The server might be restarting or the listing data is too large.");
     }
   };
+
+  useEffect(() => {
+    const c = searchParams.get('cloneId');
+    if (c) {
+      setCloneId(c);
+      setLoadingListing(true);
+      fetch(`/api/etsy/listing/${c}`)
+        .then(res => res.json())
+        .then(data => {
+          const info = data.results && data.results.length > 0 ? data.results[0] : data;
+          if (info && info.listing_id) {
+            setListingInfo(info);
+            handleGenerate(info);
+          } else {
+            console.warn("Invalid listing data received", data);
+          }
+        })
+        .finally(() => setLoadingListing(false));
+    }
+  }, [searchParams]);
 
   const currentTask = activeJobId ? tasks[activeJobId] : null;
 
@@ -58,6 +83,13 @@ export default function AIStudio() {
         <p className="text-zinc-500 mt-1 text-sm">Generate POD designs and listings using Gemini and Runware.</p>
       </div>
       
+      {activeJobId && !currentTask && (
+        <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 shadow-sm flex items-center justify-center gap-3">
+          <Loader2 className="w-5 h-5 animate-spin text-indigo-500" />
+          <span className="text-zinc-400 text-sm">Initializing AI Pipeline...</span>
+        </div>
+      )}
+
       {currentTask && (
         <div className="space-y-6">
           <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 shadow-sm">
@@ -117,74 +149,22 @@ export default function AIStudio() {
                       onClick={handleDownload}
                       className="w-full bg-zinc-800 hover:bg-zinc-700 text-white px-4 py-2 rounded-lg text-sm font-semibold transition-colors border border-zinc-700 uppercase tracking-wider"
                     >
-                      Download CMYK Asset
+                      Download Design Asset
                     </button>
-                    {currentTask.result.mockupUrl && (
-                      <button 
-                        onClick={async () => {
-                          try {
-                            const res = await fetch(currentTask.result.mockupUrl);
-                            const blob = await res.blob();
-                            const url = window.URL.createObjectURL(blob);
-                            const a = document.createElement('a');
-                            a.href = url;
-                            a.download = `${currentTask.result.title?.replace(/\s+/g, '_').toLowerCase() || 'design'}_mockup.png`;
-                            document.body.appendChild(a);
-                            a.click();
-                            window.URL.revokeObjectURL(url);
-                            document.body.removeChild(a);
-                          } catch (err) {
-                            console.error("Failed to download mockup", err);
-                          }
-                        }}
-                        className="w-full bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg text-sm font-semibold transition-colors uppercase tracking-wider"
-                      >
-                        Download Mockup
-                      </button>
-                    )}
                   </div>
                 </div>
               </div>
-              {currentTask.result.mockupUrl && currentTask.result.mockupUrl !== currentTask.result.imageUrl && (
-                <div className="p-6 border-t border-zinc-800 bg-[#0d0d0d] flex items-center justify-center">
-                  <div className="w-full max-w-2xl">
-                    <h3 className="text-sm font-semibold text-zinc-400 mb-4 uppercase tracking-wider">Lifestyle Mockup</h3>
-                    <img src={currentTask.result.mockupUrl} alt="Lifestyle Mockup" className="w-full h-auto rounded-lg object-cover border border-zinc-800/50" />
-                  </div>
-                </div>
-              )}
             </div>
           )}
         </div>
       )}
 
-      <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 shadow-sm">
-        <label className="block text-sm font-medium text-zinc-300 mb-2">
-          Design Prompt (Runware API & Gemini SEO)
-        </label>
-        <div className="flex gap-3">
-          <input
-            type="text"
-            className="flex-1 bg-[#0d0d0d] border border-zinc-800 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-colors"
-            placeholder="e.g. Vintage national park t-shirt design, retro sunset..."
-            value={prompt}
-            onChange={(e) => setPrompt(e.target.value)}
-            disabled={!!currentTask && currentTask.progress < 100}
-          />
-          <button
-            onClick={handleGenerate}
-            disabled={!prompt || (!!currentTask && currentTask.progress < 100)}
-            className="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed text-white px-6 py-3 rounded-lg font-medium flex items-center gap-2 transition-colors shadow-sm"
-          >
-            {currentTask && currentTask.progress < 100 ? (
-              <Loader2 className="w-5 h-5 animate-spin" />
-            ) : (
-              <Wand2 className="w-5 h-5" />
-            )}
-            Generate
-          </button>
+      {loadingListing && (
+        <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 shadow-sm flex items-center justify-center gap-3">
+          <Loader2 className="w-5 h-5 animate-spin text-indigo-500" />
+          <span className="text-zinc-400 text-sm">Analyzing listing to generate clone...</span>
         </div>
-      </div>
+      )}
     </div>
   );
 }

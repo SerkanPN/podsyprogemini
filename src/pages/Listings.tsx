@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from 'react';
-import { useSearchParams, Link } from 'react-router-dom';
+import { useSearchParams, Link, useNavigate } from 'react-router-dom';
 import { ExternalLink, Loader2, Sparkles, TrendingUp, Flame, Search, Store, LayoutGrid, List, Filter, X, ArrowUp, ArrowDown, Bookmark, BookmarkCheck } from 'lucide-react';
 import { useFollowStore } from '../stores/useFollowStore';
 
@@ -26,6 +26,7 @@ const getScoreColor = (score: number) => {
 };
 
 export default function Listings() {
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const query = searchParams.get('q') || 't-shirt'; // Default query so it's never empty
   
@@ -486,12 +487,38 @@ export default function Listings() {
                 
                 return (
                   <div key={item.listing_id} className="group relative bg-[#0a0a0a] border border-zinc-800 hover:border-indigo-500/50 rounded-xl flex flex-col overflow-hidden shadow-sm transition-all duration-300">
-                    <Link to={`/listings/${item.listing_id}`} className="block relative aspect-square bg-zinc-900 overflow-hidden">
+                    <div onClick={() => navigate(`/listings/${item.listing_id}`)} className="block relative aspect-square bg-zinc-900 overflow-hidden cursor-pointer">
                       {image ? (
                         <img src={image} alt="" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" loading="lazy" />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center text-zinc-700 text-xs font-bold uppercase">No Image</div>
                       )}
+                      
+                      <div className="absolute top-3 left-3 z-10">
+                        <button
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            toggleListing({
+                              id: item.listing_id.toString(),
+                              title: item.title,
+                              image: image || undefined,
+                              shopName: shopName
+                            });
+                          }}
+                          className={`p-1.5 rounded shadow-lg backdrop-blur transition-colors ${
+                            isListingFollowed(item.listing_id.toString()) 
+                              ? 'bg-indigo-500 text-white' 
+                              : 'bg-black/50 text-white/70 hover:text-white hover:bg-black/70'
+                          }`}
+                        >
+                          {isListingFollowed(item.listing_id.toString()) ? (
+                            <BookmarkCheck className="w-4 h-4" />
+                          ) : (
+                            <Bookmark className="w-4 h-4" />
+                          )}
+                        </button>
+                      </div>
                       
                       <div className="absolute top-3 right-3 flex flex-col gap-2">
                         {isHot && (
@@ -505,15 +532,18 @@ export default function Listings() {
                       </div>
                       
                       <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent p-4 pt-12 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <Link 
-                          to={`/ai-studio?prompt=${encodeURIComponent(`I want to create a product similar to "${item.title}". Please give me ideas, title, tags, and description for a similar listing.`)}`} 
+                        <button 
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            navigate(`/ai-studio?cloneId=${item.listing_id}`);
+                          }}
                           className="flex items-center justify-center gap-2 w-full py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded text-xs font-bold uppercase tracking-widest shadow-md transition-colors"
-                          onClick={(e) => e.stopPropagation()}
                         >
                           <Sparkles className="w-3.5 h-3.5" /> AI Clone
-                        </Link>
+                        </button>
                       </div>
-                    </Link>
+                    </div>
                     
                     <div className="p-4 flex-1 flex flex-col justify-between gap-3">
                       <div>
