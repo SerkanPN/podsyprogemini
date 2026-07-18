@@ -1,0 +1,104 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  name      String?
+  createdAt DateTime @default(now())
+  shops     Shop[]
+}
+
+model Shop {
+  id           String    @id @default(uuid())
+  userId       String
+  etsyShopId   String    @unique
+  shopName     String
+  accessToken  String?
+  refreshToken String?
+  createdAt    DateTime  @default(now())
+  user         User      @relation(fields: [userId], references: [id])
+  listings     Listing[]
+}
+
+model Listing {
+  id          String   @id @default(uuid())
+  shopId      String
+  etsyId      String   @unique
+  title       String
+  description String?
+  price       Float?
+  views       Int      @default(0)
+  favorites   Int      @default(0)
+  createdAt   DateTime @default(now())
+  shop        Shop     @relation(fields: [shopId], references: [id])
+}
+
+model TrackedItem {
+  id        String   @id @default(uuid())
+  keyword   String
+  volume    Int      @default(0)
+  createdAt DateTime @default(now())
+}
+
+model SearchCache {
+  id        String   @id @default(uuid())
+  query     String   @unique
+  data      String   // JSON stringified results
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model AnalysisCache {
+  id        String   @id @default(uuid())
+  type      String   // "keyword", "listing", "shop"
+  targetId  String   
+  data      String   // JSON stringified analysis result
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([type, targetId])
+}
+
+model CronJob {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  lastRun   DateTime?
+  status    String   @default("idle")
+}
+
+model TrendData {
+  id        String   @id @default(uuid())
+  niche     String
+  score     Float
+  createdAt DateTime @default(now())
+}
+
+model PodAsset {
+  id        String   @id @default(uuid())
+  name      String
+  url       String
+  type      String   // "cmyk_print", "mockup", "video"
+  createdAt DateTime @default(now())
+}
+
+model GeneratedListing {
+  id        String   @id @default(uuid())
+  prompt    String
+  status    String   @default("pending") // pending, generating, ready, published
+  resultUrl String?
+  createdAt DateTime @default(now())
+}
+
+model AiReport {
+  id        String   @id @default(uuid())
+  type      String   // "weekly", "monthly"
+  content   String
+  audioUrl  String?
+  createdAt DateTime @default(now())
+}

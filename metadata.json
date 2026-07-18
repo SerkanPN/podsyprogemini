@@ -1,0 +1,6 @@
+{
+  "name": "PodsyPro 2.0",
+  "description": "Autonomous E-Commerce & AI Production Portal",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
