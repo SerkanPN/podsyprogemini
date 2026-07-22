@@ -1155,7 +1155,7 @@ Return the response in JSON format exactly like this schema:
       }
     }));
     
-    app.get('*all', (req, res) => {
+    app.get('*', (req, res) => {
       res.sendFile(path.join(distPath, 'app.html'));
     });
   }
