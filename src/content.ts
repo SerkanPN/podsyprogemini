@@ -61,8 +61,17 @@ function scrapeData() {
     let itemAvg = itemAvgMatch ? parseFloat(itemAvgMatch[1]) : null;
     
     // Scrape Price and Original Price from the buy box
-    let priceElement = document.querySelector('div[data-buy-box-region="price"] p:not(.wt-text-strikethrough):not(.wt-text-caption)');
+    let priceElement = document.querySelector('#listing-page-cart > div.wt-display-flex-xs.wt-align-items-center.wt-flex-wrap > div > div > p > span') || document.querySelector('div[data-buy-box-region="price"] p:not(.wt-text-strikethrough):not(.wt-text-caption)');
+    
+    // Also try checking `.wt-screen-reader-only` inside the price area for screen readers if text is hidden
     let priceStr = priceElement ? priceElement.textContent?.trim() : null;
+    if (!priceStr) {
+      // Fallback selector just in case
+      let fallbackElement = document.querySelector('div[data-buy-box-region="price"]');
+      if (fallbackElement) {
+        priceStr = fallbackElement.textContent?.replace(/[a-zA-Z]/g, '')?.trim() || null;
+      }
+    }
 
     let originalPriceElement = document.querySelector('div[data-buy-box-region="price"] p.wt-text-strikethrough');
     let originalPriceStr = originalPriceElement ? originalPriceElement.textContent?.trim() : null;
@@ -107,8 +116,15 @@ function observePriceChanges() {
   if (!targetNode) return;
 
   const priceObserver = new MutationObserver(() => {
-    let priceElement = document.querySelector('div[data-buy-box-region="price"] p:not(.wt-text-strikethrough):not(.wt-text-caption)');
+    let priceElement = document.querySelector('#listing-page-cart > div.wt-display-flex-xs.wt-align-items-center.wt-flex-wrap > div > div > p > span') || document.querySelector('div[data-buy-box-region="price"] p:not(.wt-text-strikethrough):not(.wt-text-caption)');
     let priceStr = priceElement ? priceElement.textContent?.trim() : null;
+    
+    if (!priceStr) {
+      let fallbackElement = document.querySelector('div[data-buy-box-region="price"]');
+      if (fallbackElement) {
+        priceStr = fallbackElement.textContent?.replace(/[a-zA-Z]/g, '')?.trim() || null;
+      }
+    }
     
     if (priceStr && priceStr !== lastScrapedPriceStr) {
       lastScrapedPriceStr = priceStr;
@@ -120,8 +136,19 @@ function observePriceChanges() {
   priceObserver.observe(targetNode, { childList: true, subtree: true, characterData: true });
 }
 
+let lastUrl = window.location.href;
+
 // Observe DOM for SPA navigations on Etsy
 const observer = new MutationObserver(() => {
+  if (window.location.href !== lastUrl) {
+    lastUrl = window.location.href;
+    // URL changed! Let's re-scrape data immediately so side panel updates
+    setTimeout(() => {
+      scrapeData();
+      observePriceChanges();
+    }, 1000); // Small delay to let React render the new page
+  }
+  
   injectAnalyzerButton();
   if (!lastScrapedPriceStr) {
     observePriceChanges();
