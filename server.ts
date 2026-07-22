@@ -1128,6 +1128,15 @@ Return the response in JSON format exactly like this schema:
       server: { middlewareMode: true },
       appType: "spa",
     });
+    
+    // Redirect root to app.html during dev
+    app.use((req, res, next) => {
+      if (req.url === '/' || req.url === '/index.html') {
+        req.url = '/app.html';
+      }
+      next();
+    });
+    
     app.use(vite.middlewares);
   } else {
     // cPanel Passenger için özel dizin ve MIME çözümü
@@ -1147,7 +1156,7 @@ Return the response in JSON format exactly like this schema:
     }));
     
     app.get('*all', (req, res) => {
-      res.sendFile(path.join(distPath, 'index.html'));
+      res.sendFile(path.join(distPath, 'app.html'));
     });
   }
 
