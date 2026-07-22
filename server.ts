@@ -128,23 +128,29 @@ async function startServer() {
       const userId = data.access_token.split('.')[0];
       let shopId = null;
       let shopName = "Connected Shop";
+      let debugInfo = "";
 
       if (userId) {
         const shopsRes = await fetch(`https://openapi.etsy.com/v3/application/users/${userId}/shops`, {
           headers: { "x-api-key": apiKey, "Authorization": `Bearer ${data.access_token}` }
         });
         
+        const responseText = await shopsRes.text();
+        debugInfo = `Status: ${shopsRes.status}, Body: ${responseText}`;
+        
         if (shopsRes.ok) {
-          const shopData = await shopsRes.json();
-          shopId = shopData.shop_id || (shopData.results && shopData.results.length > 0 && shopData.results[0].shop_id);
-          shopName = shopData.shop_name || (shopData.results && shopData.results.length > 0 && shopData.results[0].shop_name) || shopName;
-        } else {
-          console.error("Failed to fetch shops by user id", await shopsRes.text());
+          try {
+            const shopData = JSON.parse(responseText);
+            shopId = shopData.shop_id || (shopData.results && shopData.results.length > 0 && shopData.results[0].shop_id);
+            shopName = shopData.shop_name || (shopData.results && shopData.results.length > 0 && shopData.results[0].shop_name) || shopName;
+          } catch (e) {
+            debugInfo += ` | JSON Parse Error: ${e.message}`;
+          }
         }
       }
 
       if (!shopId) {
-        return res.send(`Logged in user does not have a shop. User ID: ${userId || 'unknown'}`);
+        return res.send(`Logged in user does not have a shop. User ID: ${userId || 'unknown'}. Debug info: ${debugInfo}`);
       }
 
       // Ensure a dummy user exists for relations
