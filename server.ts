@@ -1129,8 +1129,22 @@ Return the response in JSON format exactly like this schema:
     });
     app.use(vite.middlewares);
   } else {
-    const distPath = path.join(process.cwd(), 'dist');
-    app.use(express.static(distPath));
+    // cPanel Passenger için özel dizin ve MIME çözümü
+    const baseDir = __dirname.includes('dist-server') ? path.join(__dirname, '..') : process.cwd();
+    const distPath = path.join(baseDir, 'dist');
+    
+    app.use(express.static(distPath, {
+      setHeaders: (res, filePath) => {
+        if (filePath.endsWith('.js')) {
+          res.setHeader('Content-Type', 'application/javascript');
+        } else if (filePath.endsWith('.css')) {
+          res.setHeader('Content-Type', 'text/css');
+        } else if (filePath.endsWith('.svg')) {
+          res.setHeader('Content-Type', 'image/svg+xml');
+        }
+      }
+    }));
+    
     app.get('*all', (req, res) => {
       res.sendFile(path.join(distPath, 'index.html'));
     });
