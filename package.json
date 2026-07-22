@@ -6,11 +6,11 @@
   "scripts": {
     "dev": "tsx server.ts",
     "dev:ext": "vite build -c vite.config.ext.ts -w",
-    "build": "vite build && esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs",
+    "build": "vite build && esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist-server/server.cjs",
     "build:ext": "vite build -c vite.config.ext.ts",
-    "start": "node dist/server.cjs",
+    "start": "node dist-server/server.cjs",
     "preview": "vite preview",
-    "clean": "rm -rf dist server.js",
+    "clean": "rm -rf dist dist-server server.js",
     "lint": "tsc --noEmit"
   },
   "dependencies": {
