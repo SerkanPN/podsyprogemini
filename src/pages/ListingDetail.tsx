@@ -38,10 +38,11 @@ export default function ListingDetail() {
   };
 
   useEffect(() => {
+    setScrapedPrice(null); // Reset when ID changes
     // Read initial scraped price
     if (typeof chrome !== 'undefined' && chrome.storage) {
       chrome.storage.local.get(['scrapedListingData'], (res) => {
-        if (res.scrapedListingData && res.scrapedListingData.priceStr) {
+        if (res.scrapedListingData && res.scrapedListingData.priceStr && res.scrapedListingData.listingId === id) {
           const parsed = parsePriceStr(res.scrapedListingData.priceStr);
           if (!isNaN(parsed)) setScrapedPrice(parsed);
         }
@@ -50,7 +51,7 @@ export default function ListingDetail() {
       const listener = (changes: any, area: string) => {
         if (area === 'local' && changes.scrapedListingData && changes.scrapedListingData.newValue) {
           const newData = changes.scrapedListingData.newValue;
-          if (newData.priceStr) {
+          if (newData.priceStr && newData.listingId === id) {
             const parsed = parsePriceStr(newData.priceStr);
             if (!isNaN(parsed)) setScrapedPrice(parsed);
           }
@@ -59,7 +60,7 @@ export default function ListingDetail() {
       chrome.storage.onChanged.addListener(listener);
       return () => chrome.storage.onChanged.removeListener(listener);
     }
-  }, []);
+  }, [id]);
 
   // Fetch auth status and listing data
   useEffect(() => {
