@@ -6,6 +6,7 @@
   "permissions": [
     "sidePanel",
     "activeTab",
+    "tabs",
     "scripting",
     "storage"
   ],
@@ -19,7 +20,7 @@
   "content_scripts": [
     {
       "js": [
-        "assets/content.ts-D5Ep4IYz.js"
+        "assets/content.ts-bTP8ziQs.js"
       ],
       "matches": [
         "*://*.etsy.com/*"
@@ -38,7 +39,7 @@
         "*://*.etsy.com/*"
       ],
       "resources": [
-        "assets/content.ts-D5Ep4IYz.js"
+        "assets/content.ts-bTP8ziQs.js"
       ],
       "use_dynamic_url": false
     }
