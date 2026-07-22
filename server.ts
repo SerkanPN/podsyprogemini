@@ -87,7 +87,7 @@ async function startServer() {
     // Save verifier mapped to state
     authState.set(state, codeVerifier);
 
-    const redirectUri = "http://localhost:3000/api/etsy/callback";
+    const redirectUri = process.env.ETSY_CALLBACK_URL || "http://localhost:3000/api/etsy/callback";
     const scope = "listings_r transactions_r shops_r profile_r favorites_r";
 
     const authUrl = `https://www.etsy.com/oauth/connect?response_type=code&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(scope)}&client_id=${apiKey}&state=${state}&code_challenge=${codeChallenge}&code_challenge_method=S256`;
@@ -105,7 +105,7 @@ async function startServer() {
     authState.delete(state as string);
 
     const apiKey = process.env.ETSY_API_KEY;
-    const redirectUri = "http://localhost:3000/api/etsy/callback";
+    const redirectUri = process.env.ETSY_CALLBACK_URL || "http://localhost:3000/api/etsy/callback";
 
     try {
       const response = await fetch("https://api.etsy.com/v3/public/oauth/token", {
