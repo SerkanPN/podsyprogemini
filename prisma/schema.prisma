@@ -14,29 +14,74 @@ model User {
   shops     Shop[]
 }
 
+model KeywordQuery {
+  id             String    @id @default(uuid())
+  keyword        String    @unique
+  listingIds     String    @default("")
+  lastQueriedAt  DateTime  @default(now())
+}
+
 model Shop {
-  id           String    @id @default(uuid())
-  userId       String
-  etsyShopId   String    @unique
-  shopName     String
-  accessToken  String?
-  refreshToken String?
-  createdAt    DateTime  @default(now())
-  user         User      @relation(fields: [userId], references: [id])
-  listings     Listing[]
+  id            String          @id @default(uuid())
+  userId        String
+  etsyShopId    String          @unique
+  shopName      String
+  accessToken   String?
+  refreshToken  String?
+  totalSales    Int             @default(0)
+  hasFullDetails Boolean        @default(false)
+  rawJson       String          @default("{}")
+  lastQueriedAt DateTime        @default(now())
+  createdAt     DateTime        @default(now())
+  user          User            @relation(fields: [userId], references: [id])
+  listings      Listing[]
+  snapshots     ShopSnapshot[]
+  receipts      Receipt[]
+  transactions  Transaction[]
+}
+
+model ShopSnapshot {
+  id         String   @id @default(uuid())
+  shopId     String
+  totalSales Int
+  createdAt  DateTime @default(now())
+  shop       Shop     @relation(fields: [shopId], references: [id])
 }
 
 model Listing {
+  id            String            @id @default(uuid())
+  shopId        String
+  etsyId        String            @unique
+  title         String
+  description   String?
+  price         Float?
+  views         Int               @default(0)
+  favorites     Int               @default(0)
+  imagesJson    String            @default("[]")
+  videosJson    String            @default("[]")
+  tagsJson      String            @default("[]")
+  inventoryJson String            @default("{}")
+  propertiesJson String           @default("[]")
+  reviewsJson   String            @default("[]")
+  shippingPrice Float?
+  url           String            @default("")
+  hasFullDetails Boolean          @default(false)
+  rawJson       String            @default("{}")
+  lastQueriedAt DateTime          @default(now())
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @default(now())
+  shop          Shop              @relation(fields: [shopId], references: [id])
+  snapshots     ListingSnapshot[]
+}
+
+model ListingSnapshot {
   id          String   @id @default(uuid())
-  shopId      String
-  etsyId      String   @unique
-  title       String
-  description String?
+  listingId   String
+  views       Int
+  favorites   Int
   price       Float?
-  views       Int      @default(0)
-  favorites   Int      @default(0)
   createdAt   DateTime @default(now())
-  shop        Shop     @relation(fields: [shopId], references: [id])
+  listing     Listing  @relation(fields: [listingId], references: [id])
 }
 
 model TrackedItem {
@@ -101,4 +146,43 @@ model AiReport {
   content   String
   audioUrl  String?
   createdAt DateTime @default(now())
+}
+
+model Receipt {
+  id               String        @id @default(uuid())
+  shopId           String
+  receiptId        String        @unique // Etsy's receipt_id
+  buyerEmail       String?
+  buyerUserId      String?
+  creationTsz      Int           // Creation timestamp from Etsy
+  grandtotal       Float?
+  subtotal         Float?
+  discountAmt      Float?
+  shippingCost     Float?
+  status           String?       // paid, shipped, etc.
+  messageFromBuyer String?
+  rawJson          String        @default("{}")
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+  shop             Shop          @relation(fields: [shopId], references: [id])
+  transactions     Transaction[]
+}
+
+model Transaction {
+  id             String   @id @default(uuid())
+  receiptId      String
+  shopId         String
+  transactionId  String   @unique // Etsy's transaction_id
+  title          String
+  description    String?
+  quantity       Int
+  price          Float
+  shippingCost   Float?
+  listingId      String?  // Etsy's listing_id if available
+  productId      String?
+  rawJson        String   @default("{}")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  receipt        Receipt  @relation(fields: [receiptId], references: [id])
+  shop           Shop     @relation(fields: [shopId], references: [id])
 }

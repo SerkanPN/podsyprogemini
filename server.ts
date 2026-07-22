@@ -8,6 +8,7 @@ import dotenv from "dotenv";
 import crypto from "crypto";
 import fsSync from "fs";
 import fs from "fs/promises";
+import { prisma } from "./db";
 
 dotenv.config();
 
@@ -25,6 +26,17 @@ async function startServer() {
     cors: { origin: "*" }
   });
   const PORT = 3000;
+
+  app.use((req, res, next) => {
+    res.header("Access-Control-Allow-Origin", "*");
+    res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization");
+    res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+    if (req.method === "OPTIONS") {
+      res.sendStatus(200);
+    } else {
+      next();
+    }
+  });
 
   app.use(express.json({ limit: '10mb' }));
 
@@ -49,6 +61,260 @@ async function startServer() {
 
   // API Gateway Routes
   const apiRouter = express.Router();
+
+  // --- ETSY OAUTH 2.0 PKCE ---
+  
+  // Base64URL encode buffer
+  const base64URLEncode = (buffer: Buffer) => {
+    return buffer.toString('base64')
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_')
+      .replace(/=/g, '');
+  };
+
+  // Temporary store for code_verifier (in memory for now, should be session/DB in prod)
+  const authState = new Map<string, string>();
+
+  apiRouter.get("/etsy/auth", (req, res) => {
+    const apiKey = process.env.ETSY_API_KEY;
+    if (!apiKey) return res.status(500).json({ error: "ETSY_API_KEY missing" });
+
+    // Generate state and PKCE verifier
+    const state = Math.random().toString(36).substring(2, 15);
+    const codeVerifier = crypto.randomBytes(32).toString('hex');
+    const codeChallenge = base64URLEncode(crypto.createHash('sha256').update(codeVerifier).digest());
+
+    // Save verifier mapped to state
+    authState.set(state, codeVerifier);
+
+    const redirectUri = "http://localhost:3000/api/etsy/callback";
+    const scope = "listings_r transactions_r shops_r profile_r favorites_r";
+
+    const authUrl = `https://www.etsy.com/oauth/connect?response_type=code&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(scope)}&client_id=${apiKey}&state=${state}&code_challenge=${codeChallenge}&code_challenge_method=S256`;
+    
+    res.redirect(authUrl);
+  });
+
+  apiRouter.get("/etsy/callback", async (req, res) => {
+    const { code, state } = req.query;
+    if (!code || !state) return res.status(400).send("Missing code or state");
+
+    const codeVerifier = authState.get(state as string);
+    if (!codeVerifier) return res.status(400).send("Invalid state or verifier expired");
+
+    authState.delete(state as string);
+
+    const apiKey = process.env.ETSY_API_KEY;
+    const redirectUri = "http://localhost:3000/api/etsy/callback";
+
+    try {
+      const response = await fetch("https://api.etsy.com/v3/public/oauth/token", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          grant_type: "authorization_code",
+          client_id: apiKey,
+          redirect_uri: redirectUri,
+          code,
+          code_verifier: codeVerifier
+        })
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        return res.status(response.status).send(`Failed to get token: ${JSON.stringify(data)}`);
+      }
+
+      // We have the access_token. Let's fetch the shop ID.
+      const userRes = await fetch(`https://openapi.etsy.com/v3/application/users/me`, {
+        headers: { "x-api-key": apiKey, "Authorization": `Bearer ${data.access_token}` }
+      });
+      const userData = await userRes.json();
+      const shopId = userData.shop_id;
+
+      if (!shopId) {
+        return res.send("Logged in user does not have a shop.");
+      }
+
+
+      // Ensure a dummy user exists for relations
+      let user = await prisma.user.findFirst();
+      if (!user) {
+        user = await prisma.user.create({ data: { email: "admin@podsypro.com" }});
+      }
+
+      // We should also fetch the shop details to get the proper name
+      const shopDetailsRes = await fetch(`https://openapi.etsy.com/v3/application/shops/${shopId}`, {
+        headers: { "x-api-key": apiKey, "Authorization": `Bearer ${data.access_token}` }
+      });
+      let shopName = "Connected Shop";
+      if (shopDetailsRes.ok) {
+        const shopData = await shopDetailsRes.json();
+        shopName = shopData.shop_name || shopName;
+      }
+
+      // Upsert the shop with the tokens
+      await prisma.shop.upsert({
+        where: { etsyShopId: shopId.toString() },
+        update: {
+          accessToken: data.access_token,
+          refreshToken: data.refresh_token,
+          shopName: shopName,
+          hasFullDetails: true
+        },
+        create: {
+          userId: user.id,
+          etsyShopId: shopId.toString(),
+          shopName: shopName,
+          accessToken: data.access_token,
+          refreshToken: data.refresh_token,
+          hasFullDetails: true
+        }
+      });
+
+      // Redirect back to our app (or send a success HTML page that closes itself)
+      res.send(`
+        <html>
+          <body>
+            <h2>Etsy Shop Connected Successfully!</h2>
+            <p>You can close this window and return to PodsyPro.</p>
+            <script>
+              // Notify the extension if possible, or just close
+              setTimeout(() => { window.close(); }, 3000);
+            </script>
+          </body>
+        </html>
+      `);
+    } catch (err: any) {
+      console.error(err);
+      res.status(500).send("Internal error");
+    }
+  });
+
+  // --- DEEP SYNC ARCHITECTURE ---
+
+  apiRouter.post("/etsy/sync-shop", async (req, res) => {
+    const { shopId } = req.body; // Internal shop ID or etsyShopId
+    if (!shopId) return res.status(400).json({ error: "Missing shopId" });
+
+    try {
+      const shop = await prisma.shop.findFirst({ where: { etsyShopId: shopId } });
+      if (!shop || !shop.accessToken) {
+        return res.status(404).json({ error: "Shop not found or not connected" });
+      }
+
+      const apiKey = process.env.ETSY_API_KEY;
+      if (!apiKey) return res.status(500).json({ error: "ETSY_API_KEY missing" });
+
+      const headers = { "x-api-key": apiKey, "Authorization": `Bearer ${shop.accessToken}` };
+
+      // 1. Fetch Shop Stats
+      const shopRes = await fetch(`https://openapi.etsy.com/v3/application/shops/${shop.etsyShopId}`, { headers });
+      if (shopRes.ok) {
+        const shopData = await shopRes.json();
+        const totalSales = shopData.transaction_sold_count || 0;
+        
+        await prisma.shop.update({
+          where: { id: shop.id },
+          data: { totalSales, rawJson: JSON.stringify(shopData) }
+        });
+        
+        await prisma.shopSnapshot.create({
+          data: { shopId: shop.id, totalSales }
+        });
+      }
+
+      // 2. Fetch Active Listings
+      const listingsRes = await fetch(`https://openapi.etsy.com/v3/application/shops/${shop.etsyShopId}/listings/active?limit=100`, { headers });
+      if (listingsRes.ok) {
+        const listingsData = await listingsRes.json();
+        for (const item of listingsData.results) {
+          const price = item.price?.amount ? item.price.amount / item.price.divisor : 0;
+          await prisma.listing.upsert({
+            where: { etsyId: item.listing_id.toString() },
+            update: {
+              title: item.title,
+              views: item.views,
+              favorites: item.num_favorers,
+              price: price,
+              rawJson: JSON.stringify(item)
+            },
+            create: {
+              shopId: shop.id,
+              etsyId: item.listing_id.toString(),
+              title: item.title,
+              views: item.views,
+              favorites: item.num_favorers,
+              price: price,
+              rawJson: JSON.stringify(item)
+            }
+          });
+        }
+      }
+
+      // 3. Fetch Receipts (Orders)
+      const receiptsRes = await fetch(`https://openapi.etsy.com/v3/application/shops/${shop.etsyShopId}/receipts?limit=50`, { headers });
+      if (receiptsRes.ok) {
+        const receiptsData = await receiptsRes.json();
+        for (const receipt of receiptsData.results) {
+          const rId = receipt.receipt_id.toString();
+          const rDb = await prisma.receipt.upsert({
+            where: { receiptId: rId },
+            update: {
+              status: receipt.status,
+              rawJson: JSON.stringify(receipt)
+            },
+            create: {
+              shopId: shop.id,
+              receiptId: rId,
+              buyerEmail: receipt.buyer_email,
+              buyerUserId: receipt.buyer_user_id?.toString(),
+              creationTsz: receipt.creation_tsz,
+              grandtotal: receipt.grandtotal?.amount ? receipt.grandtotal.amount / receipt.grandtotal.divisor : 0,
+              subtotal: receipt.subtotal?.amount ? receipt.subtotal.amount / receipt.subtotal.divisor : 0,
+              status: receipt.status,
+              rawJson: JSON.stringify(receipt)
+            }
+          });
+
+          // Fetch transactions for this receipt if possible, or use the summary
+          const transactionsRes = await fetch(`https://openapi.etsy.com/v3/application/shops/${shop.etsyShopId}/receipts/${rId}/transactions`, { headers });
+          if (transactionsRes.ok) {
+            const txData = await transactionsRes.json();
+            for (const tx of txData.results) {
+              await prisma.transaction.upsert({
+                where: { transactionId: tx.transaction_id.toString() },
+                update: { rawJson: JSON.stringify(tx) },
+                create: {
+                  receiptId: rDb.id,
+                  shopId: shop.id,
+                  transactionId: tx.transaction_id.toString(),
+                  title: tx.title,
+                  quantity: tx.quantity,
+                  price: tx.price?.amount ? tx.price.amount / tx.price.divisor : 0,
+                  listingId: tx.listing_id?.toString(),
+                  productId: tx.product_id?.toString(),
+                  rawJson: JSON.stringify(tx)
+                }
+              });
+            }
+          }
+        }
+      }
+
+      return res.json({ success: true, message: "Sync complete" });
+    } catch (err: any) {
+      console.error(err);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Check auth status for extension
+  apiRouter.get("/etsy/auth-status", async (req, res) => {
+    // Return true if any shop is connected (for now, simple global check)
+    const count = await prisma.shop.count({ where: { accessToken: { not: null } } });
+    res.json({ isConnected: count > 0 });
+  });
   
   // Cache for etsy search (keeps same query for 1 day)
   const searchCache = new Map<string, { timestamp: number, data: any }>();
@@ -456,6 +722,7 @@ Return the response in JSON format exactly like this schema:
       if (!q) {
         return res.status(400).json({ error: "Query parameter 'q' is required" });
       }
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : 100;
 
       const cacheKey = q.toLowerCase();
       if (searchCache.has(cacheKey)) {
@@ -468,7 +735,7 @@ Return the response in JSON format exactly like this schema:
       }
 
       const apiKey = process.env.ETSY_API_KEY;
-      const sharedSecret = process.env.ETSY_API_SECRET;
+      const sharedSecret = process.env.ETSY_API_SECRET || process.env.ETSY_SHARED_SECRET;
       
       if (!apiKey) {
         return res.status(500).json({ error: "ETSY_API_KEY is not configured" });
@@ -501,7 +768,7 @@ Return the response in JSON format exactly like this schema:
           const response = await fetch(`https://openapi.etsy.com/v3/application/listings/${q}?includes=Images,Shop`, { headers });
           if (response.ok) {
             const data = await response.json();
-            const resultData = { results: [data], type: "listing" };
+            const resultData = { results: [data], type: "listing", count: 1 };
             searchCache.set(cacheKey, { timestamp: Date.now(), data: resultData });
             return res.json(resultData);
           }
@@ -517,12 +784,16 @@ Return the response in JSON format exactly like this schema:
           const shopData = await shopResponse.json();
           if (shopData.results && shopData.results.length > 0) {
             const shopId = shopData.results[0].shop_id;
-            const listingsResponse = await fetch(`https://openapi.etsy.com/v3/application/shops/${shopId}/listings/active?limit=20`, { headers });
+            const listingsResponse = await fetch(`https://openapi.etsy.com/v3/application/shops/${shopId}/listings/active?limit=${limit}`, { headers });
             if (listingsResponse.ok) {
               const listingsData = await listingsResponse.json();
               if (listingsData.results && listingsData.results.length > 0) {
                 const enriched = await enrichListings(listingsData.results);
-                const resultData = { results: enriched, type: "shop" };
+                const resultData = { 
+                  results: enriched, 
+                  type: "shop", 
+                  count: listingsData.count || enriched.length 
+                };
                 searchCache.set(cacheKey, { timestamp: Date.now(), data: resultData });
                 return res.json(resultData);
               }
@@ -534,11 +805,15 @@ Return the response in JSON format exactly like this schema:
       }
 
       // 3. Fallback to Keyword Search
-      const keywordResponse = await fetch(`https://openapi.etsy.com/v3/application/listings/active?keywords=${encodeURIComponent(q)}&limit=20`, { headers });
+      const keywordResponse = await fetch(`https://openapi.etsy.com/v3/application/listings/active?keywords=${encodeURIComponent(q)}&limit=${limit}`, { headers });
       if (keywordResponse.ok) {
         const keywordData = await keywordResponse.json();
         const enriched = await enrichListings(keywordData.results);
-        const resultData = { results: enriched, type: "keyword" };
+        const resultData = { 
+          results: enriched, 
+          type: "keyword", 
+          count: keywordData.count || enriched.length 
+        };
         searchCache.set(cacheKey, { timestamp: Date.now(), data: resultData });
         return res.json(resultData);
       } else {
@@ -556,7 +831,7 @@ Return the response in JSON format exactly like this schema:
     try {
       const { id } = req.params;
       const apiKey = process.env.ETSY_API_KEY;
-      const sharedSecret = process.env.ETSY_API_SECRET;
+      const sharedSecret = process.env.ETSY_API_SECRET || process.env.ETSY_SHARED_SECRET;
       if (!apiKey) return res.status(500).json({ error: "ETSY_API_KEY is not configured" });
 
       const headerValue = sharedSecret ? `${apiKey}:${sharedSecret}` : apiKey;
@@ -570,6 +845,62 @@ Return the response in JSON format exactly like this schema:
       const response = await fetch(`https://openapi.etsy.com/v3/application/listings/${id}?includes=Images,Shop,Videos`, { headers });
       if (response.ok) {
         const data = await response.json();
+
+        // Background Database Saving
+        (async () => {
+          try {
+            // Upsert shop if present
+            let dbShopId = null;
+            if (data.shop) {
+              const s = await prisma.shop.upsert({
+                where: { etsyShopId: data.shop.shop_id.toString() },
+                update: { shopName: data.shop.shop_name, rawJson: JSON.stringify(data.shop) },
+                create: {
+                  userId: (await prisma.user.findFirst())?.id || "",
+                  etsyShopId: data.shop.shop_id.toString(),
+                  shopName: data.shop.shop_name,
+                  rawJson: JSON.stringify(data.shop)
+                }
+              });
+              dbShopId = s.id;
+            }
+
+            if (dbShopId) {
+              const price = data.price?.amount ? data.price.amount / data.price.divisor : 0;
+              const listing = await prisma.listing.upsert({
+                where: { etsyId: data.listing_id.toString() },
+                update: {
+                  title: data.title,
+                  views: data.views,
+                  favorites: data.num_favorers,
+                  price: price,
+                  rawJson: JSON.stringify(data)
+                },
+                create: {
+                  shopId: dbShopId,
+                  etsyId: data.listing_id.toString(),
+                  title: data.title,
+                  views: data.views,
+                  favorites: data.num_favorers,
+                  price: price,
+                  rawJson: JSON.stringify(data)
+                }
+              });
+              
+              await prisma.listingSnapshot.create({
+                data: {
+                  listingId: listing.id,
+                  views: data.views,
+                  favorites: data.num_favorers,
+                  price: price
+                }
+              });
+            }
+          } catch (dbErr) {
+            console.error("Failed to background save listing to DB:", dbErr);
+          }
+        })();
+
         return res.json(data);
       } else {
         const errorText = await response.text();
@@ -581,11 +912,69 @@ Return the response in JSON format exactly like this schema:
     }
   });
 
+  apiRouter.get("/etsy/listing/:id/reviews", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const apiKey = process.env.ETSY_API_KEY;
+      const sharedSecret = process.env.ETSY_API_SECRET || process.env.ETSY_SHARED_SECRET;
+      if (!apiKey) return res.status(500).json({ error: "ETSY_API_KEY is not configured" });
+
+      const headerValue = sharedSecret ? `${apiKey}:${sharedSecret}` : apiKey;
+      const headers: Record<string, string> = { "x-api-key": headerValue };
+      
+      const authHeader = req.headers.authorization;
+      if (authHeader) {
+        headers["Authorization"] = authHeader;
+      }
+
+      const response = await fetch(`https://openapi.etsy.com/v3/application/listings/${id}/reviews?limit=20`, { headers });
+      if (response.ok) {
+        const data = await response.json();
+        return res.json(data);
+      } else {
+        const errorText = await response.text();
+        return res.status(response.status).json({ error: "Failed to fetch reviews from Etsy API", details: errorText });
+      }
+    } catch (error: any) {
+      console.error("Etsy reviews error:", error);
+      res.status(500).json({ error: error.message || "Internal server error" });
+    }
+  });
+
+  apiRouter.get("/etsy/listing/:id/inventory", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const apiKey = process.env.ETSY_API_KEY;
+      const sharedSecret = process.env.ETSY_API_SECRET || process.env.ETSY_SHARED_SECRET;
+      if (!apiKey) return res.status(500).json({ error: "ETSY_API_KEY is not configured" });
+
+      const headerValue = sharedSecret ? `${apiKey}:${sharedSecret}` : apiKey;
+      const headers: Record<string, string> = { "x-api-key": headerValue };
+      
+      const authHeader = req.headers.authorization;
+      if (authHeader) {
+        headers["Authorization"] = authHeader;
+      }
+
+      const response = await fetch(`https://openapi.etsy.com/v3/application/listings/${id}/inventory`, { headers });
+      if (response.ok) {
+        const data = await response.json();
+        return res.json(data);
+      } else {
+        const errorText = await response.text();
+        return res.status(response.status).json({ error: "Failed to fetch inventory from Etsy API", details: errorText });
+      }
+    } catch (error: any) {
+      console.error("Etsy inventory error:", error);
+      res.status(500).json({ error: error.message || "Internal server error" });
+    }
+  });
+
   apiRouter.get("/etsy/shop/:id", async (req, res) => {
     try {
       const { id } = req.params;
       const apiKey = process.env.ETSY_API_KEY;
-      const sharedSecret = process.env.ETSY_API_SECRET;
+      const sharedSecret = process.env.ETSY_API_SECRET || process.env.ETSY_SHARED_SECRET;
       if (!apiKey) return res.status(500).json({ error: "ETSY_API_KEY is not configured" });
 
       const headerValue = sharedSecret ? `${apiKey}:${sharedSecret}` : apiKey;

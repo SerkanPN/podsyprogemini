@@ -1,0 +1,1 @@
+chrome.runtime.onInstalled.addListener(()=>{chrome.sidePanel.setPanelBehavior({openPanelOnActionClick:!0}).catch(e=>console.error(e))});chrome.runtime.onMessage.addListener((e,n,a)=>{e.type==="OPEN_SIDEPANEL"&&n.tab&&n.tab.id&&chrome.sidePanel.open({tabId:n.tab.id})});

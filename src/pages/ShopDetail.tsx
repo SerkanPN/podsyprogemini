@@ -3,6 +3,13 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { ArrowLeft, ExternalLink, Loader2, Store, MapPin, Calendar, Star, TrendingUp, Flame, Bookmark, BookmarkCheck, Sparkles } from 'lucide-react';
 import { useFollowStore } from '../stores/useFollowStore';
 
+const getApiUrl = (path: string) => {
+  if (window.location.protocol.includes('chrome-extension')) {
+    return `http://localhost:3000${path}`;
+  }
+  return path;
+};
+
 export default function ShopDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -20,7 +27,7 @@ export default function ShopDetail() {
     setAiLoading(true);
     setAiError(null);
     try {
-      const res = await fetch('/api/ai-studio/analyze-shop', {
+      const res = await fetch(getApiUrl('/api/ai-studio/analyze-shop'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -49,7 +56,7 @@ export default function ShopDetail() {
         if (token && token !== 'null' && token !== 'undefined') {
           headers['Authorization'] = `Bearer ${token}`;
         }
-        const res = await fetch(`/api/etsy/shop/${id}`, { headers });
+        const res = await fetch(getApiUrl(`/api/etsy/shop/${id}`), { headers });
         if (!res.ok) {
           const errData = await res.json();
           throw new Error(errData.error || 'Failed to fetch shop');
@@ -113,17 +120,6 @@ export default function ShopDetail() {
             <h1 className="text-3xl font-bold tracking-tight text-white mb-2">{shop.shop_name}</h1>
             <p className="text-lg text-zinc-400 mb-4 font-medium">{shop.title}</p>
             
-            <div className="flex flex-wrap gap-6 text-sm text-zinc-500 mb-6">
-              <div className="flex items-center gap-2">
-                <Store className="w-4 h-4" />
-                <span>{shop.listing_active_count || 0} Active Listings</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Star className="w-4 h-4 text-yellow-500/70" />
-                <span>{shop.review_count || 0} Reviews</span>
-              </div>
-            </div>
-
             {shop.url && (
               <div className="flex items-center gap-3">
                 <a
@@ -150,6 +146,63 @@ export default function ShopDetail() {
             )}
           </div>
         </div>
+
+        {/* Shop Metrics Dashboard Grid */}
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mt-8 pt-8 border-t border-zinc-800">
+          <div className="bg-zinc-900/50 p-4 border border-zinc-800 rounded-lg">
+            <p className="text-xs text-zinc-500 uppercase tracking-widest font-semibold mb-1">Active Listings</p>
+            <p className="text-xl font-bold text-white">{shop.listing_active_count || 0}</p>
+          </div>
+          <div className="bg-zinc-900/50 p-4 border border-zinc-800 rounded-lg">
+            <p className="text-xs text-zinc-500 uppercase tracking-widest font-semibold mb-1">Digital Items</p>
+            <p className="text-xl font-bold text-white">{shop.digital_listing_count || 0}</p>
+          </div>
+          <div className="bg-zinc-900/50 p-4 border border-zinc-800 rounded-lg">
+            <p className="text-xs text-zinc-500 uppercase tracking-widest font-semibold mb-1">Total Sales</p>
+            <p className="text-xl font-bold text-white">{shop.transaction_sold_count || shop.transaction_count || 0}</p>
+          </div>
+          <div className="bg-zinc-900/50 p-4 border border-zinc-800 rounded-lg">
+            <p className="text-xs text-zinc-500 uppercase tracking-widest font-semibold mb-1">Shop Followers</p>
+            <p className="text-xl font-bold text-white">{shop.num_favorers || 0}</p>
+          </div>
+          <div className="bg-zinc-900/50 p-4 border border-zinc-800 rounded-lg">
+            <p className="text-xs text-zinc-500 uppercase tracking-widest font-semibold mb-1">Feedback Rating</p>
+            <p className="text-sm font-bold text-yellow-500 flex items-center gap-1">
+              {shop.review_average ? shop.review_average.toFixed(1) : '0.0'} ★
+              <span className="text-[10px] text-zinc-400 font-normal">({shop.review_count || 0} reviews)</span>
+            </p>
+          </div>
+          <div className="bg-zinc-900/50 p-4 border border-zinc-800 rounded-lg">
+            <p className="text-xs text-zinc-500 uppercase tracking-widest font-semibold mb-1">Shop Owner / Login</p>
+            <p className="text-sm text-zinc-200 capitalize">{shop.login_name || 'N/A'}</p>
+          </div>
+          <div className="bg-zinc-900/50 p-4 border border-zinc-800 rounded-lg">
+            <p className="text-xs text-zinc-500 uppercase tracking-widest font-semibold mb-1">Currency Code</p>
+            <p className="text-sm text-zinc-200 uppercase font-mono">{shop.currency_code || 'USD'}</p>
+          </div>
+          <div className="bg-zinc-900/50 p-4 border border-zinc-800 rounded-lg">
+            <p className="text-xs text-zinc-500 uppercase tracking-widest font-semibold mb-1">Vacation Mode</p>
+            <p className={`text-sm font-semibold ${shop.is_vacation ? 'text-amber-400' : 'text-emerald-400'}`}>
+              {shop.is_vacation ? 'Active' : 'Disabled'}
+            </p>
+          </div>
+          <div className="bg-zinc-900/50 p-4 border border-zinc-800 rounded-lg col-span-1 md:col-span-2">
+            <p className="text-xs text-zinc-500 uppercase tracking-widest font-semibold mb-1">Custom Requests</p>
+            <p className="text-sm text-zinc-200 font-semibold">
+              {shop.accepts_custom_requests ? 'Accepts Custom Orders' : 'No Custom Orders'}
+            </p>
+          </div>
+        </div>
+
+        {/* Shop Announcement */}
+        {shop.announcement && (
+          <div className="mt-6 p-4 bg-zinc-900/30 border border-zinc-800/85 rounded-lg">
+            <p className="text-xs text-zinc-500 uppercase tracking-widest font-semibold mb-2">Shop Announcement</p>
+            <p className="text-sm text-zinc-400 whitespace-pre-wrap italic leading-relaxed">
+              "{shop.announcement}"
+            </p>
+          </div>
+        )}
       </div>
 
       {/* AI Shop Optimizer Section */}

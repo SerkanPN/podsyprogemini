@@ -6,6 +6,7 @@ import { useAppStore } from './stores/useAppStore';
 import Layout from './components/layout/Layout';
 import Dashboard from './pages/Dashboard';
 import Listings from './pages/Listings';
+import KeywordAnalysis from './pages/KeywordAnalysis';
 import ListingDetail from './pages/ListingDetail';
 import ShopDetail from './pages/ShopDetail';
 import AIStudio from './pages/AIStudio';
@@ -37,6 +38,7 @@ export default function App() {
           <Route index element={<Navigate to="/dashboard" replace />} />
           <Route path="dashboard" element={<Dashboard />} />
           <Route path="listings" element={<Listings />} />
+          <Route path="keyword-analysis" element={<KeywordAnalysis />} />
           <Route path="listings/:id" element={<ListingDetail />} />
           <Route path="shops/:id" element={<ShopDetail />} />
           <Route path="following" element={<Followed />} />

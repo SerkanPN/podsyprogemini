@@ -1,0 +1,31 @@
+{
+  "manifest_version": 3,
+  "name": "PodsyPro Etsy Analyzer",
+  "version": "1.0.0",
+  "description": "Analyze Etsy listings and shops directly from the sidebar.",
+  "permissions": [
+    "sidePanel",
+    "activeTab",
+    "scripting",
+    "storage"
+  ],
+  "host_permissions": [
+    "*://*.etsy.com/*"
+  ],
+  "background": {
+    "service_worker": "src/background.ts",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": ["*://*.etsy.com/*"],
+      "js": ["src/content.ts"]
+    }
+  ],
+  "side_panel": {
+    "default_path": "sidepanel.html"
+  },
+  "action": {
+    "default_title": "Open PodsyPro Analyzer"
+  }
+}

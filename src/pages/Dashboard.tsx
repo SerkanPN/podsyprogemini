@@ -1,136 +1,108 @@
-import { useEffect, useState } from 'react';
-import { useSocketStore } from '../stores/useSocketStore';
+import { TrendingUp, Key, List, Store, ShoppingBag, PlusCircle, Activity, Cpu } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 export default function Dashboard() {
-  const [stats, setStats] = useState({ healthScore: 0, activeTasks: 0, trendsFound: 0, totalListings: 0 });
-  const tasks = useSocketStore(state => state.tasks);
-
-  useEffect(() => {
-    const fetchStats = async () => {
-      try {
-        const res = await fetch('/api/stats');
-        if (res.ok) {
-          const data = await res.json();
-          setStats(data);
-        }
-      } catch (err) {
-        // Suppress network errors during hot reload or dev server restart
-        console.warn('Could not fetch stats, server might be restarting...');
-      }
-    };
-    fetchStats();
-  }, []);
+  const cards = [
+    {
+      title: 'Trend Analysis',
+      subtitle: 'Discover what sells',
+      icon: <TrendingUp className="w-12 h-12 text-zinc-300 group-hover:text-[#F1641E] transition-colors mb-4" />,
+      link: '/reports',
+      bg: 'bg-zinc-800'
+    },
+    {
+      title: 'Keyword Analysis',
+      subtitle: 'Most searched terms',
+      icon: <Key className="w-12 h-12 text-zinc-300 group-hover:text-[#F1641E] transition-colors mb-4" />,
+      link: '/reports',
+      bg: 'bg-zinc-800'
+    },
+    {
+      title: 'Listing Analysis',
+      subtitle: 'Analyze competitors',
+      icon: <List className="w-12 h-12 text-zinc-300 group-hover:text-[#F1641E] transition-colors mb-4" />,
+      link: '/listings',
+      bg: 'bg-zinc-800'
+    },
+    {
+      title: 'Shop Analysis',
+      subtitle: 'Track successful shops',
+      icon: <Store className="w-12 h-12 text-zinc-300 group-hover:text-[#F1641E] transition-colors mb-4" />,
+      link: '/listings',
+      bg: 'bg-zinc-800'
+    },
+    {
+      title: 'My Shop',
+      subtitle: 'Your own metrics',
+      icon: <ShoppingBag className="w-12 h-12 text-zinc-300 group-hover:text-[#F1641E] transition-colors mb-4" />,
+      link: '/',
+      bg: 'bg-zinc-800'
+    },
+    {
+      title: 'Product Creation',
+      subtitle: 'AI design & mockup',
+      icon: <PlusCircle className="w-12 h-12 text-zinc-300 group-hover:text-[#F1641E] transition-colors mb-4" />,
+      link: '/ai-studio',
+      bg: 'bg-zinc-800'
+    }
+  ];
 
   return (
-    <div className="flex-1 space-y-8 overflow-hidden">
-      {/* Top KPI Row */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <div className="bg-zinc-900 border border-zinc-800 p-5 rounded-xl">
-          <div className="text-xs text-zinc-500 mb-1">Active AI Jobs</div>
-          <div className="text-3xl font-bold text-white">{stats.activeTasks || 14}</div>
-          <div className="mt-2 flex items-center gap-2">
-            <div className="flex-1 h-1 bg-zinc-800 rounded-full overflow-hidden">
-              <div className="w-2/3 h-full bg-indigo-500"></div>
-            </div>
-            <span className="text-[10px] text-indigo-400">68% Queue</span>
+    <div className="w-full h-full flex flex-col space-y-12 pb-12">
+      {/* Hero Banner Section */}
+      <div className="bg-[#F1641E] rounded-xl overflow-hidden flex flex-col md:flex-row relative group min-h-[350px]">
+        {/* Left text area */}
+        <div className="flex-1 p-12 flex flex-col justify-center items-center text-center relative z-10 bg-[#F1641E]">
+          <div className="mb-6 flex justify-center w-full">
+            <img src="/logo01.png" alt="PODSY PRO Logo" className="w-64 max-w-full h-auto object-contain drop-shadow-lg" />
           </div>
+          <p className="text-xl text-white font-medium max-w-md mx-auto mb-8">
+            AI-Powered Etsy Sales & Analysis Assistant
+          </p>
+          <button className="bg-[#111] text-white px-6 py-3 rounded-full font-bold hover:bg-zinc-800 transition-colors shadow-lg hover:shadow-xl hover:-translate-y-0.5 transform">
+            Explore System
+          </button>
         </div>
-        <div className="bg-zinc-900 border border-zinc-800 p-5 rounded-xl">
-          <div className="text-xs text-zinc-500 mb-1">Market Opportunity</div>
-          <div className="text-3xl font-bold text-white tracking-tight">🔥 HIGH</div>
-          <div className="text-[10px] text-zinc-600 uppercase mt-2">Trend: Retro Floral (Etsy)</div>
-        </div>
-        <div className="bg-zinc-900 border border-zinc-800 p-5 rounded-xl">
-          <div className="text-xs text-zinc-500 mb-1">Sync Health Score</div>
-          <div className="text-3xl font-bold text-white">{stats.healthScore || 98}<span className="text-lg opacity-40">/100</span></div>
-          <div className="text-[10px] text-emerald-500 uppercase mt-2">System Optimized</div>
-        </div>
-        <div className="bg-zinc-900 border border-zinc-800 p-5 rounded-xl">
-          <div className="text-xs text-zinc-500 mb-1">New Drafts Ready</div>
-          <div className="text-3xl font-bold text-white">124</div>
-          <div className="text-[10px] text-zinc-600 uppercase mt-2">Awaiting Approval</div>
+
+        {/* Right Info blocks - styled like Etsy photos but with icons/text */}
+        <div className="flex-1 flex flex-col sm:flex-row gap-0">
+          <div className="flex-1 bg-zinc-900 p-8 flex flex-col justify-end relative overflow-hidden group-hover:bg-zinc-800 transition-colors">
+            <Cpu className="absolute -top-10 -right-10 w-48 h-48 text-zinc-800/50" />
+            <h3 className="text-2xl font-bold text-white mb-2 relative z-10">Smart Analysis</h3>
+            <p className="text-zinc-400 relative z-10">Process millions of data points instantly</p>
+          </div>
+          <div className="flex-1 bg-zinc-800 p-8 flex flex-col justify-end relative overflow-hidden group-hover:bg-zinc-700 transition-colors">
+            <Activity className="absolute -top-10 -right-10 w-48 h-48 text-zinc-700/50" />
+            <h3 className="text-2xl font-bold text-white mb-2 relative z-10">Continuous Tracking</h3>
+            <p className="text-zinc-400 relative z-10">Spot trends before competitors</p>
+          </div>
         </div>
       </div>
 
-      {/* Split Layout Body */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:h-[420px]">
-        {/* Left: Queue Monitor */}
-        <div className="col-span-1 lg:col-span-2 bg-[#0d0d0d] border border-zinc-800 rounded-xl flex flex-col">
-          <div className="p-4 border-b border-zinc-800 flex justify-between items-center">
-            <h2 className="text-sm font-semibold text-white">Active Production Pipeline</h2>
-            <span className="text-[10px] bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 px-2 py-0.5 rounded">Real-time Socket.io</span>
-          </div>
-          <div className="flex-1 overflow-auto">
-            <table className="w-full text-left text-xs">
-              <thead>
-                <tr className="text-zinc-500 border-b border-zinc-800/50">
-                  <th className="px-6 py-3 font-normal">Job ID</th>
-                  <th className="px-6 py-3 font-normal">Task Type</th>
-                  <th className="px-6 py-3 font-normal">Status</th>
-                  <th className="px-6 py-3 font-normal">Progress</th>
-                </tr>
-              </thead>
-              <tbody className="text-zinc-300">
-                <tr className="border-b border-zinc-800/30">
-                  <td className="px-6 py-4 font-mono">#POD-9021</td>
-                  <td className="px-6 py-4">Trend SEO & Metadata</td>
-                  <td className="px-6 py-4 flex items-center gap-2"><span className="w-1.5 h-1.5 bg-blue-400 rounded-full"></span> Gemini AI Analyzing</td>
-                  <td className="px-6 py-4">85%</td>
-                </tr>
-                <tr className="border-b border-zinc-800/30">
-                  <td className="px-6 py-4 font-mono">#POD-9022</td>
-                  <td className="px-6 py-4">Upscale (300DPI) + CMYK</td>
-                  <td className="px-6 py-4 flex items-center gap-2"><span className="w-1.5 h-1.5 bg-emerald-400 rounded-full"></span> Completed</td>
-                  <td className="px-6 py-4">100%</td>
-                </tr>
-                <tr className="border-b border-zinc-800/30">
-                  <td className="px-6 py-4 font-mono">#POD-9023</td>
-                  <td className="px-6 py-4">Mockup Generation</td>
-                  <td className="px-6 py-4 flex items-center gap-2"><span className="w-1.5 h-1.5 bg-amber-400 rounded-full"></span> Runware API Active</td>
-                  <td className="px-6 py-4">42%</td>
-                </tr>
-                {Object.entries(tasks).map(([jobId, task]) => (
-                  <tr key={jobId} className="border-b border-zinc-800/30">
-                    <td className="px-6 py-4 font-mono">#{jobId}</td>
-                    <td className="px-6 py-4">AI Studio Generation</td>
-                    <td className="px-6 py-4 flex items-center gap-2">
-                      <span className={`w-1.5 h-1.5 rounded-full ${task.progress === 100 ? 'bg-emerald-400' : 'bg-blue-400'}`}></span>
-                      {task.message}
-                    </td>
-                    <td className="px-6 py-4">{task.progress}%</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        {/* Right: Recent Assets/Studio Preview */}
-        <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl overflow-hidden flex flex-col">
-          <div className="p-4 border-b border-zinc-800">
-            <h2 className="text-sm font-semibold text-white">Latest AI Generations</h2>
-          </div>
-          <div className="p-4 flex-1 grid grid-cols-2 gap-3">
-            <div className="bg-zinc-800 rounded-lg aspect-square border border-zinc-700/50 p-2 flex flex-col">
-               <div className="flex-1 bg-zinc-900 rounded mb-2 flex items-center justify-center text-zinc-700">Design 01</div>
-               <div className="text-[10px] uppercase font-bold text-zinc-500">Floral Retro</div>
-            </div>
-            <div className="bg-zinc-800 rounded-lg aspect-square border border-zinc-700/50 p-2 flex flex-col">
-               <div className="flex-1 bg-zinc-900 rounded mb-2 flex items-center justify-center text-zinc-700">Design 02</div>
-               <div className="text-[10px] uppercase font-bold text-zinc-500">Typo Minimal</div>
-            </div>
-            <div className="bg-zinc-800 rounded-lg aspect-square border border-zinc-700/50 p-2 flex flex-col">
-               <div className="flex-1 bg-zinc-900 rounded mb-2 flex items-center justify-center text-zinc-700">Mockup 01</div>
-               <div className="text-[10px] uppercase font-bold text-zinc-500">T-Shirt V1</div>
-            </div>
-            <div className="bg-zinc-800 rounded-lg aspect-square border border-zinc-700/50 p-2 flex flex-col">
-               <div className="flex-1 bg-zinc-900 rounded mb-2 flex items-center justify-center text-zinc-700">Mockup 02</div>
-               <div className="text-[10px] uppercase font-bold text-zinc-500">Poster Wall</div>
-            </div>
-          </div>
-          <button className="m-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-semibold transition-colors uppercase tracking-wider">
-            Enter AI Studio
-          </button>
+      {/* Main Tools Cards Section */}
+      <div className="space-y-6">
+        <h2 className="text-2xl font-bold text-white flex items-center gap-2">
+          Explore Tools
+        </h2>
+        
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6">
+          {cards.map((card, i) => (
+            <Link 
+              key={i} 
+              to={card.link}
+              className="group flex flex-col relative overflow-hidden rounded-xl bg-zinc-900 border border-zinc-800 hover:border-zinc-700 transition-all hover:-translate-y-1 hover:shadow-2xl aspect-[3/4]"
+            >
+              <div className="flex-1 p-6 flex flex-col items-center justify-center text-center">
+                {card.icon}
+                <h3 className="font-bold text-white mb-1 group-hover:text-[#F1641E] transition-colors">
+                  {card.title}
+                </h3>
+                <p className="text-xs text-zinc-400">
+                  {card.subtitle}
+                </p>
+              </div>
+            </Link>
+          ))}
         </div>
       </div>
     </div>

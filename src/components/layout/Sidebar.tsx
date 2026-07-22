@@ -1,97 +1,162 @@
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, List, Sparkles, FolderOpen, Clock, FileText, Bookmark } from 'lucide-react';
+import { 
+  LayoutDashboard, 
+  TrendingUp, 
+  Key, 
+  List, 
+  Store, 
+  ShoppingBag, 
+  PlusCircle, 
+  ChevronDown, 
+  ChevronRight, 
+  ChevronLeft,
+  Menu
+} from 'lucide-react';
+import { useState } from 'react';
 import { cn } from '../../lib/utils';
 
 export default function Sidebar() {
+  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [toolsOpen, setToolsOpen] = useState(true);
+  const [analyticsOpen, setAnalyticsOpen] = useState(true);
+  const [takiplerOpen, setTakiplerOpen] = useState(true);
+
+  // Helper to render links with tooltips when collapsed
+  const renderLink = (to: string, icon: React.ReactNode, label: string) => {
+    return (
+      <NavLink
+        to={to}
+        title={isCollapsed ? label : undefined}
+        className={({ isActive }) => cn(
+          "flex items-center gap-3 px-3 py-2 rounded-md transition-all duration-200 relative group font-medium",
+          isActive ? "bg-zinc-800 text-white" : "text-zinc-400 hover:text-white hover:bg-zinc-800/50",
+          isCollapsed ? "justify-center px-2" : ""
+        )}
+      >
+        {icon}
+        {!isCollapsed && <span className="text-sm truncate">{label}</span>}
+        
+        {/* Tooltip for collapsed state */}
+        {isCollapsed && (
+          <div className="absolute left-full ml-2 px-2 py-1 bg-zinc-950 text-white text-xs rounded opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity duration-150 z-50 whitespace-nowrap border border-zinc-800 shadow-xl">
+            {label}
+          </div>
+        )}
+      </NavLink>
+    );
+  };
+
   return (
-    <aside className="w-64 border-r border-zinc-800 bg-[#0f0f0f] flex flex-col hidden md:flex">
-      <div className="p-6 flex items-center gap-3">
-        <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center font-bold text-white">
-          P
-        </div>
-        <span className="text-lg font-semibold tracking-tight text-white uppercase">PodsyPro 2.0</span>
+    <aside 
+      className={cn(
+        "border-r border-zinc-800 bg-[#111] flex flex-col hidden md:flex shrink-0 transition-all duration-300 ease-in-out relative",
+        isCollapsed ? "w-16" : "w-64"
+      )}
+    >
+      {/* Header Area */}
+      <div className={cn(
+        "p-4 flex items-center border-b border-zinc-800/50 h-20",
+        isCollapsed ? "justify-center" : "justify-between"
+      )}>
+        {!isCollapsed && (
+          <span className="text-xs font-semibold text-zinc-500 uppercase tracking-widest">Categories</span>
+        )}
+        <button 
+          onClick={() => setIsCollapsed(!isCollapsed)}
+          className="p-1.5 rounded-lg bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-800 transition-all shadow-md"
+          title={isCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
+        >
+          {isCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
+        </button>
       </div>
 
-      <nav className="flex-1 px-4 space-y-1 overflow-y-auto">
-        <div className="text-xs font-semibold text-zinc-500 uppercase px-2 mb-2 tracking-widest mt-2">Main Console</div>
-        <NavLink
-          to="/dashboard"
-          className={({ isActive }) => cn(
-            "flex items-center gap-3 px-3 py-2 rounded-md transition-colors",
-            isActive ? "bg-zinc-800 text-white" : "text-zinc-500 hover:text-zinc-300"
-          )}
-        >
-          <LayoutDashboard className="w-5 h-5" />
-          Dashboard
-        </NavLink>
-        <NavLink
-          to="/listings"
-          className={({ isActive }) => cn(
-            "flex items-center gap-3 px-3 py-2 rounded-md transition-colors",
-            isActive ? "bg-zinc-800 text-white" : "text-zinc-500 hover:text-zinc-300"
-          )}
-        >
-          <List className="w-5 h-5" />
-          Etsy Listings
-        </NavLink>
-        <NavLink
-          to="/following"
-          className={({ isActive }) => cn(
-            "flex items-center gap-3 px-3 py-2 rounded-md transition-colors",
-            isActive ? "bg-zinc-800 text-white" : "text-zinc-500 hover:text-zinc-300"
-          )}
-        >
-          <Bookmark className="w-5 h-5" />
-          Following
-        </NavLink>
-        <NavLink
-          to="/ai-studio"
-          className={({ isActive }) => cn(
-            "flex items-center gap-3 px-3 py-2 rounded-md transition-colors",
-            isActive ? "bg-zinc-800 text-white" : "text-zinc-500 hover:text-zinc-300"
-          )}
-        >
-          <Sparkles className="w-5 h-5" />
-          AI Studio
-        </NavLink>
-        <NavLink
-          to="/pod-assets"
-          className={({ isActive }) => cn(
-            "flex items-center gap-3 px-3 py-2 rounded-md transition-colors",
-            isActive ? "bg-zinc-800 text-white" : "text-zinc-500 hover:text-zinc-300"
-          )}
-        >
-          <FolderOpen className="w-5 h-5" />
-          POD Assets
-        </NavLink>
-
-        <div className="pt-8 text-xs font-semibold text-zinc-500 uppercase px-2 mb-2 tracking-widest">Automation</div>
-        <div className="flex items-center gap-3 text-zinc-500 hover:text-zinc-300 px-3 py-2 rounded-md cursor-pointer transition-colors">
-          <Clock className="w-5 h-5" />
-          Cron Scheduler
+      {/* Navigation Area */}
+      <nav className="flex-1 py-4 space-y-4 overflow-y-auto overflow-x-hidden custom-scrollbar">
+        {/* Dashboard Link */}
+        <div className="px-2">
+          {renderLink("/", <LayoutDashboard className="w-5 h-5" />, "Dashboard")}
         </div>
-        <NavLink
-          to="/reports"
-          className={({ isActive }) => cn(
-            "flex items-center gap-3 px-3 py-2 rounded-md transition-colors",
-            isActive ? "bg-zinc-800 text-white" : "text-zinc-500 hover:text-zinc-300"
-          )}
-        >
-          <FileText className="w-5 h-5" />
-          AI Reports
-        </NavLink>
+
+        {isCollapsed ? (
+          /* Collapsed direct list of all icons grouped for quick access */
+          <div className="px-2 space-y-2 border-t border-zinc-800/50 pt-4">
+            <div className="text-[10px] font-bold text-zinc-600 text-center uppercase mb-1">Follow</div>
+            {renderLink("/following/keywords", <Key className="w-5 h-5 text-indigo-400" />, "Following: Keywords")}
+            {renderLink("/following/listings", <List className="w-5 h-5 text-indigo-400" />, "Following: Listings")}
+            {renderLink("/following/shops", <Store className="w-5 h-5 text-indigo-400" />, "Following: Shops")}
+
+            <div className="text-[10px] font-bold text-zinc-600 text-center uppercase mb-1 mt-3">Tools</div>
+            {renderLink("/ai-studio", <PlusCircle className="w-5 h-5 text-emerald-400" />, "Product Creation")}
+            {renderLink("/listings", <List className="w-5 h-5 text-emerald-400" />, "Listing Analysis")}
+
+            <div className="text-[10px] font-bold text-zinc-600 text-center uppercase mb-1 mt-3">Analyt.</div>
+            {renderLink("/reports", <TrendingUp className="w-5 h-5 text-amber-400" />, "Trend Analysis")}
+            {renderLink("/keyword-analysis", <Key className="w-5 h-5 text-amber-400" />, "Keyword Analysis")}
+            {renderLink("/shop-analytics", <Store className="w-5 h-5 text-amber-400" />, "Shop Analysis")}
+            {renderLink("/my-shop", <ShoppingBag className="w-5 h-5 text-amber-400" />, "My Shop")}
+          </div>
+        ) : (
+          /* Expanded Accordion Tree structure */
+          <div className="space-y-4">
+            {/* Tracked Items Section */}
+            <div>
+              <button 
+                onClick={() => setTakiplerOpen(!takiplerOpen)}
+                className="w-full flex items-center justify-between px-4 py-2 text-zinc-300 hover:text-white transition-colors"
+              >
+                <span className="font-semibold text-sm">Following</span>
+                {takiplerOpen ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+              </button>
+              
+              {takiplerOpen && (
+                <div className="mt-1 space-y-1 px-2 border-l border-zinc-800/80 ml-4 mr-2">
+                  {renderLink("/following/keywords", <Key className="w-4 h-4" />, "Keywords")}
+                  {renderLink("/following/listings", <List className="w-4 h-4" />, "Listings")}
+                  {renderLink("/following/shops", <Store className="w-4 h-4" />, "Shops")}
+                </div>
+              )}
+            </div>
+
+            {/* Tools Section */}
+            <div>
+              <button 
+                onClick={() => setToolsOpen(!toolsOpen)}
+                className="w-full flex items-center justify-between px-4 py-2 text-zinc-300 hover:text-white transition-colors"
+              >
+                <span className="font-semibold text-sm">Tools</span>
+                {toolsOpen ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+              </button>
+              
+              {toolsOpen && (
+                <div className="mt-1 space-y-1 px-2 border-l border-zinc-800/80 ml-4 mr-2">
+                  {renderLink("/ai-studio", <PlusCircle className="w-4 h-4" />, "Product Creation")}
+                  {renderLink("/listings", <List className="w-4 h-4" />, "Listing Analysis")}
+                </div>
+              )}
+            </div>
+
+            {/* Analytics Section */}
+            <div>
+              <button 
+                onClick={() => setAnalyticsOpen(!analyticsOpen)}
+                className="w-full flex items-center justify-between px-4 py-2 text-zinc-300 hover:text-white transition-colors"
+              >
+                <span className="font-semibold text-sm">Analytics</span>
+                {analyticsOpen ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+              </button>
+              
+              {analyticsOpen && (
+                <div className="mt-1 space-y-1 px-2 border-l border-zinc-800/80 ml-4 mr-2">
+                  {renderLink("/reports", <TrendingUp className="w-4 h-4" />, "Trend Analysis")}
+                  {renderLink("/keyword-analysis", <Key className="w-4 h-4" />, "Keyword Analysis")}
+                  {renderLink("/shop-analytics", <Store className="w-4 h-4" />, "Shop Analysis")}
+                  {renderLink("/my-shop", <ShoppingBag className="w-4 h-4" />, "My Shop")}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </nav>
-
-      <div className="p-4 border-t border-zinc-800">
-        <div className="flex items-center justify-between mb-2">
-          <span className="text-[10px] text-zinc-500 uppercase">API Gateway</span>
-          <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]"></div>
-        </div>
-        <div className="flex items-center justify-between">
-          <span className="text-[10px] text-zinc-500 uppercase">Worker Node 01</span>
-          <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]"></div>
-        </div>
-      </div>
     </aside>
   );
 }

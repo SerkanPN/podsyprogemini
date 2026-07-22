@@ -1,0 +1,108 @@
+// PodsyPro Etsy Analyzer Content Script
+
+function injectAnalyzerButton() {
+  // Prevent duplicate injection
+  if (document.getElementById('podsypro-analyzer-fab')) return;
+
+  // Only inject on specific Etsy pages
+  const isListing = window.location.pathname.startsWith('/listing/');
+  const isShop = window.location.pathname.startsWith('/shop/');
+
+  if (!isListing && !isShop) return;
+
+  const btn = document.createElement('button');
+  btn.id = 'podsypro-analyzer-fab';
+  btn.innerHTML = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 6px;"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/><path d="M20 3v4"/><path d="M22 5h-4"/><path d="M4 17v2"/><path d="M5 18H3"/></svg>
+    PodsyPro
+  `;
+  
+  btn.style.position = 'fixed';
+  btn.style.right = '20px';
+  btn.style.top = '100px';
+  btn.style.zIndex = '999999';
+  btn.style.backgroundColor = '#F1641E';
+  btn.style.color = '#FFFFFF';
+  btn.style.border = 'none';
+  btn.style.borderRadius = '30px';
+  btn.style.padding = '12px 20px';
+  btn.style.fontWeight = 'bold';
+  btn.style.fontSize = '14px';
+  btn.style.cursor = 'pointer';
+  btn.style.boxShadow = '0 4px 12px rgba(0,0,0,0.3)';
+  btn.style.display = 'flex';
+  btn.style.alignItems = 'center';
+  btn.style.transition = 'transform 0.2s';
+
+  btn.onmouseover = () => btn.style.transform = 'scale(1.05)';
+  btn.onmouseout = () => btn.style.transform = 'scale(1)';
+
+  btn.onclick = () => {
+    // 1. Scrape real DOM data
+    scrapeData();
+    // 2. Open side panel
+    chrome.runtime.sendMessage({ type: 'OPEN_SIDEPANEL' });
+  };
+
+  document.body.appendChild(btn);
+}
+
+function scrapeData() {
+  const isListing = window.location.pathname.startsWith('/listing/');
+  if (isListing) {
+    // Extract hidden data not provided by API
+    
+    // Total Reviews String (e.g. "591 reviews")
+    let totalReviewsMatch = document.body.innerText.match(/([0-9,]+)\s+reviews/i);
+    let totalReviews = totalReviewsMatch ? parseInt(totalReviewsMatch[1].replace(/,/g, '')) : null;
+
+    // Item Average (e.g. "4.9")
+    let itemAvgMatch = document.body.innerText.match(/Item average.*?([0-9.]+)/i);
+    let itemAvg = itemAvgMatch ? parseFloat(itemAvgMatch[1]) : null;
+    
+    // Scrape Price and Original Price from the buy box
+    let priceElement = document.querySelector('div[data-buy-box-region="price"] p.wt-text-title-3');
+    let priceStr = priceElement ? priceElement.textContent?.trim() : null;
+
+    let originalPriceElement = document.querySelector('div[data-buy-box-region="price"] p.wt-text-strikethrough');
+    let originalPriceStr = originalPriceElement ? originalPriceElement.textContent?.trim() : null;
+
+    const listingIdMatch = window.location.pathname.match(/\/listing\/(\d+)/);
+    const listingId = listingIdMatch ? listingIdMatch[1] : null;
+
+    if (listingId) {
+      chrome.storage.local.set({
+        scrapedListingData: {
+          listingId,
+          totalReviews,
+          itemAverage: itemAvg,
+          priceStr,
+          originalPriceStr,
+          scrapedAt: Date.now()
+        },
+        currentMode: 'listing',
+        currentId: listingId
+      });
+    }
+  } else {
+    // Is Shop
+    const shopNameMatch = window.location.pathname.match(/\/shop\/([^\/?]+)/);
+    const shopName = shopNameMatch ? shopNameMatch[1] : null;
+    if (shopName) {
+      chrome.storage.local.set({
+        currentMode: 'shop',
+        currentId: shopName
+      });
+    }
+  }
+}
+
+// Observe DOM for SPA navigations on Etsy
+const observer = new MutationObserver(() => {
+  injectAnalyzerButton();
+});
+
+observer.observe(document.body, { childList: true, subtree: true });
+
+// Initial injection
+injectAnalyzerButton();
