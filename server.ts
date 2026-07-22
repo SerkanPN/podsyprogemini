@@ -1122,7 +1122,8 @@ Return the response in JSON format exactly like this schema:
   });
 
   // Vite middleware for development
-  if (process.env.NODE_ENV !== "production") {
+  const isProduction = process.env.NODE_ENV === "production" || __dirname.includes('dist-server');
+  if (!isProduction) {
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: "spa",
