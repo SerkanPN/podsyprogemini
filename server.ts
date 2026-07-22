@@ -130,9 +130,12 @@ async function startServer() {
       let shopName = "Connected Shop";
       let debugInfo = "";
 
+      const sharedSecret = process.env.ETSY_SHARED_SECRET || "";
+      const xApiKey = sharedSecret ? `${apiKey}:${sharedSecret}` : apiKey;
+
       if (userId) {
         const shopsRes = await fetch(`https://openapi.etsy.com/v3/application/users/${userId}/shops`, {
-          headers: { "x-api-key": apiKey, "Authorization": `Bearer ${data.access_token}` }
+          headers: { "x-api-key": xApiKey, "Authorization": `Bearer ${data.access_token}` }
         });
         
         const responseText = await shopsRes.text();
