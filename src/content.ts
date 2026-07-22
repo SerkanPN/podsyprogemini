@@ -61,7 +61,7 @@ function scrapeData() {
     let itemAvg = itemAvgMatch ? parseFloat(itemAvgMatch[1]) : null;
     
     // Scrape Price and Original Price from the buy box
-    let priceElement = document.querySelector('div[data-buy-box-region="price"] p.wt-text-title-3, div[data-buy-box-region="price"] p.wt-text-title-01');
+    let priceElement = document.querySelector('div[data-buy-box-region="price"] p:not(.wt-text-strikethrough):not(.wt-text-caption)');
     let priceStr = priceElement ? priceElement.textContent?.trim() : null;
 
     let originalPriceElement = document.querySelector('div[data-buy-box-region="price"] p.wt-text-strikethrough');
@@ -107,7 +107,7 @@ function observePriceChanges() {
   if (!targetNode) return;
 
   const priceObserver = new MutationObserver(() => {
-    let priceElement = document.querySelector('div[data-buy-box-region="price"] p.wt-text-title-3, div[data-buy-box-region="price"] p.wt-text-title-01');
+    let priceElement = document.querySelector('div[data-buy-box-region="price"] p:not(.wt-text-strikethrough):not(.wt-text-caption)');
     let priceStr = priceElement ? priceElement.textContent?.trim() : null;
     
     if (priceStr && priceStr !== lastScrapedPriceStr) {

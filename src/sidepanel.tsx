@@ -47,7 +47,7 @@ function SidePanelApp() {
   // Provide scraped data to context or just render it above the actual ListingDetail for now
   return (
     <div className="h-screen w-full bg-[#121212] overflow-x-hidden">
-      <MemoryRouter initialEntries={[`/${currentMode}/${currentId}`]}>
+      <MemoryRouter key={currentId} initialEntries={[`/${currentMode}/${currentId}`]}>
         <Routes>
           <Route path="/listing/:id" element={<ListingDetail />} />
           <Route path="/shop/:id" element={<ShopDetail />} />
