@@ -130,27 +130,37 @@ async function startServer() {
         headers: { "x-api-key": apiKey, "Authorization": `Bearer ${data.access_token}` }
       });
       const userData = await userRes.json();
-      const shopId = userData.shop_id;
+      
+      let shopId = userData.shop_id;
+      let shopName = "Connected Shop";
 
-      if (!shopId) {
-        return res.send("Logged in user does not have a shop.");
+      if (!shopId && userData.user_id) {
+        const shopsRes = await fetch(`https://openapi.etsy.com/v3/application/users/${userData.user_id}/shops`, {
+          headers: { "x-api-key": apiKey, "Authorization": `Bearer ${data.access_token}` }
+        });
+        if (shopsRes.ok) {
+          const shopData = await shopsRes.json();
+          shopId = shopData.shop_id || (shopData.results && shopData.results[0]?.shop_id);
+          shopName = shopData.shop_name || (shopData.results && shopData.results[0]?.shop_name) || shopName;
+        }
+      } else if (shopId) {
+        const shopDetailsRes = await fetch(`https://openapi.etsy.com/v3/application/shops/${shopId}`, {
+          headers: { "x-api-key": apiKey, "Authorization": `Bearer ${data.access_token}` }
+        });
+        if (shopDetailsRes.ok) {
+          const shopData = await shopDetailsRes.json();
+          shopName = shopData.shop_name || shopName;
+        }
       }
 
+      if (!shopId) {
+        return res.send(`Logged in user does not have a shop. User ID: ${userData.user_id || 'unknown'}`);
+      }
 
       // Ensure a dummy user exists for relations
       let user = await prisma.user.findFirst();
       if (!user) {
         user = await prisma.user.create({ data: { email: "admin@podsypro.com" }});
-      }
-
-      // We should also fetch the shop details to get the proper name
-      const shopDetailsRes = await fetch(`https://openapi.etsy.com/v3/application/shops/${shopId}`, {
-        headers: { "x-api-key": apiKey, "Authorization": `Bearer ${data.access_token}` }
-      });
-      let shopName = "Connected Shop";
-      if (shopDetailsRes.ok) {
-        const shopData = await shopDetailsRes.json();
-        shopName = shopData.shop_name || shopName;
       }
 
       // Upsert the shop with the tokens
