@@ -125,36 +125,26 @@ async function startServer() {
         return res.status(response.status).send(`Failed to get token: ${JSON.stringify(data)}`);
       }
 
-      // We have the access_token. Let's fetch the shop ID.
-      const userRes = await fetch(`https://openapi.etsy.com/v3/application/users/me`, {
-        headers: { "x-api-key": apiKey, "Authorization": `Bearer ${data.access_token}` }
-      });
-      const userData = await userRes.json();
-      
-      let shopId = userData.shop_id;
+      const userId = data.access_token.split('.')[0];
+      let shopId = null;
       let shopName = "Connected Shop";
 
-      if (!shopId && userData.user_id) {
-        const shopsRes = await fetch(`https://openapi.etsy.com/v3/application/users/${userData.user_id}/shops`, {
+      if (userId) {
+        const shopsRes = await fetch(`https://openapi.etsy.com/v3/application/users/${userId}/shops`, {
           headers: { "x-api-key": apiKey, "Authorization": `Bearer ${data.access_token}` }
         });
+        
         if (shopsRes.ok) {
           const shopData = await shopsRes.json();
-          shopId = shopData.shop_id || (shopData.results && shopData.results[0]?.shop_id);
-          shopName = shopData.shop_name || (shopData.results && shopData.results[0]?.shop_name) || shopName;
-        }
-      } else if (shopId) {
-        const shopDetailsRes = await fetch(`https://openapi.etsy.com/v3/application/shops/${shopId}`, {
-          headers: { "x-api-key": apiKey, "Authorization": `Bearer ${data.access_token}` }
-        });
-        if (shopDetailsRes.ok) {
-          const shopData = await shopDetailsRes.json();
-          shopName = shopData.shop_name || shopName;
+          shopId = shopData.shop_id || (shopData.results && shopData.results.length > 0 && shopData.results[0].shop_id);
+          shopName = shopData.shop_name || (shopData.results && shopData.results.length > 0 && shopData.results[0].shop_name) || shopName;
+        } else {
+          console.error("Failed to fetch shops by user id", await shopsRes.text());
         }
       }
 
       if (!shopId) {
-        return res.send(`Logged in user does not have a shop. User ID: ${userData.user_id || 'unknown'}`);
+        return res.send(`Logged in user does not have a shop. User ID: ${userId || 'unknown'}`);
       }
 
       // Ensure a dummy user exists for relations
