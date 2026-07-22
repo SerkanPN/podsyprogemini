@@ -61,7 +61,7 @@ function scrapeData() {
     let itemAvg = itemAvgMatch ? parseFloat(itemAvgMatch[1]) : null;
     
     // Scrape Price and Original Price from the buy box
-    let priceElement = document.querySelector('div[data-buy-box-region="price"] p.wt-text-title-3');
+    let priceElement = document.querySelector('div[data-buy-box-region="price"] p.wt-text-title-3, div[data-buy-box-region="price"] p.wt-text-title-01');
     let priceStr = priceElement ? priceElement.textContent?.trim() : null;
 
     let originalPriceElement = document.querySelector('div[data-buy-box-region="price"] p.wt-text-strikethrough');
@@ -97,12 +97,39 @@ function scrapeData() {
   }
 }
 
+let lastScrapedPriceStr: string | null = null;
+
+function observePriceChanges() {
+  const isListing = window.location.pathname.startsWith('/listing/');
+  if (!isListing) return;
+
+  const targetNode = document.querySelector('div[data-buy-box-region="price"]');
+  if (!targetNode) return;
+
+  const priceObserver = new MutationObserver(() => {
+    let priceElement = document.querySelector('div[data-buy-box-region="price"] p.wt-text-title-3, div[data-buy-box-region="price"] p.wt-text-title-01');
+    let priceStr = priceElement ? priceElement.textContent?.trim() : null;
+    
+    if (priceStr && priceStr !== lastScrapedPriceStr) {
+      lastScrapedPriceStr = priceStr;
+      // Re-scrape and update storage
+      scrapeData();
+    }
+  });
+
+  priceObserver.observe(targetNode, { childList: true, subtree: true, characterData: true });
+}
+
 // Observe DOM for SPA navigations on Etsy
 const observer = new MutationObserver(() => {
   injectAnalyzerButton();
+  if (!lastScrapedPriceStr) {
+    observePriceChanges();
+  }
 });
 
 observer.observe(document.body, { childList: true, subtree: true });
 
 // Initial injection
 injectAnalyzerButton();
+observePriceChanges();

@@ -20,6 +20,46 @@ export default function ListingDetail() {
   const [isShopConnected, setIsShopConnected] = useState(false);
 
   const [copied, setCopied] = useState(false);
+  const [scrapedPrice, setScrapedPrice] = useState<number | null>(null);
+
+  const parsePriceStr = (str: string) => {
+    const cleaned = str.replace(/[^0-9.,]/g, '');
+    let finalStr = cleaned;
+    if (cleaned.includes(',') && !cleaned.includes('.')) {
+      finalStr = cleaned.replace(',', '.');
+    } else if (cleaned.includes(',') && cleaned.includes('.')) {
+      if (cleaned.indexOf(',') < cleaned.indexOf('.')) {
+        finalStr = cleaned.replace(/,/g, '');
+      } else {
+        finalStr = cleaned.replace(/\./g, '').replace(',', '.');
+      }
+    }
+    return parseFloat(finalStr);
+  };
+
+  useEffect(() => {
+    // Read initial scraped price
+    if (typeof chrome !== 'undefined' && chrome.storage) {
+      chrome.storage.local.get(['scrapedListingData'], (res) => {
+        if (res.scrapedListingData && res.scrapedListingData.priceStr) {
+          const parsed = parsePriceStr(res.scrapedListingData.priceStr);
+          if (!isNaN(parsed)) setScrapedPrice(parsed);
+        }
+      });
+
+      const listener = (changes: any, area: string) => {
+        if (area === 'local' && changes.scrapedListingData && changes.scrapedListingData.newValue) {
+          const newData = changes.scrapedListingData.newValue;
+          if (newData.priceStr) {
+            const parsed = parsePriceStr(newData.priceStr);
+            if (!isNaN(parsed)) setScrapedPrice(parsed);
+          }
+        }
+      };
+      chrome.storage.onChanged.addListener(listener);
+      return () => chrome.storage.onChanged.removeListener(listener);
+    }
+  }, []);
 
   // Fetch auth status and listing data
   useEffect(() => {
@@ -262,7 +302,7 @@ export default function ListingDetail() {
 
         {/* Profit Calculator */}
         {data.price && (
-          <ProfitCalculator price={data.price.amount / data.price.divisor} />
+          <ProfitCalculator price={scrapedPrice !== null ? scrapedPrice : (data.price.amount / data.price.divisor)} />
         )}
 
         {/* AI CLONE Button (Solid Etsy Orange) */}
