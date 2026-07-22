@@ -11,22 +11,55 @@ function SidePanelApp() {
   const [scrapedData, setScrapedData] = useState<any>(null);
 
   useEffect(() => {
-    // Read initial state
-    chrome.storage.local.get(['currentMode', 'currentId', 'scrapedListingData'], (res) => {
-      if (res.currentMode) setCurrentMode(res.currentMode);
-      if (res.currentId) setCurrentId(res.currentId);
+    const updateFromActiveTab = async () => {
+      try {
+        const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+        if (tabs[0] && tabs[0].url) {
+          const url = tabs[0].url;
+          if (url.includes('etsy.com/listing')) {
+            const match = url.match(/\/listing\/(\d+)/);
+            if (match) {
+              setCurrentMode('listing');
+              setCurrentId(match[1]);
+            }
+          } else if (url.includes('etsy.com/shop')) {
+            const match = url.match(/\/shop\/([^\/?]+)/);
+            if (match) {
+              setCurrentMode('shop');
+              setCurrentId(match[1]);
+            }
+          } else {
+            setCurrentMode(null);
+            setCurrentId(null);
+          }
+        }
+      } catch (e) {
+        console.error("Tab query failed", e);
+      }
+    };
+
+    updateFromActiveTab();
+
+    // Listen to tab changes
+    chrome.tabs.onActivated.addListener(updateFromActiveTab);
+    chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
+      if (changeInfo.url || changeInfo.status === 'complete') {
+        updateFromActiveTab();
+      }
+    });
+
+    // Also read storage changes for scraped data
+    chrome.storage.local.get(['scrapedListingData'], (res) => {
       if (res.scrapedListingData) setScrapedData(res.scrapedListingData);
     });
 
-    // Listen for changes when user navigates Etsy
     const listener = (changes: any, area: string) => {
-      if (area === 'local') {
-        if (changes.currentMode) setCurrentMode(changes.currentMode.newValue);
-        if (changes.currentId) setCurrentId(changes.currentId.newValue);
-        if (changes.scrapedListingData) setScrapedData(changes.scrapedListingData.newValue);
+      if (area === 'local' && changes.scrapedListingData) {
+        setScrapedData(changes.scrapedListingData.newValue);
       }
     };
     chrome.storage.onChanged.addListener(listener);
+
     return () => chrome.storage.onChanged.removeListener(listener);
   }, []);
 

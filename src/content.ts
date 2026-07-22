@@ -107,15 +107,15 @@ function scrapeData() {
 }
 
 let lastScrapedPriceStr: string | null = null;
+let priceInterval: any = null;
 
 function observePriceChanges() {
   const isListing = window.location.pathname.startsWith('/listing/');
   if (!isListing) return;
 
-  const targetNode = document.querySelector('div[data-buy-box-region="price"]');
-  if (!targetNode) return;
+  if (priceInterval) clearInterval(priceInterval);
 
-  const priceObserver = new MutationObserver(() => {
+  priceInterval = setInterval(() => {
     let priceElement = document.querySelector('#listing-page-cart > div.wt-display-flex-xs.wt-align-items-center.wt-flex-wrap > div > div > p > span') || document.querySelector('div[data-buy-box-region="price"] p:not(.wt-text-strikethrough):not(.wt-text-caption)');
     let priceStr = priceElement ? priceElement.textContent?.trim() : null;
     
@@ -131,9 +131,7 @@ function observePriceChanges() {
       // Re-scrape and update storage
       scrapeData();
     }
-  });
-
-  priceObserver.observe(targetNode, { childList: true, subtree: true, characterData: true });
+  }, 500); // Check every 500ms
 }
 
 let lastUrl = window.location.href;
@@ -150,9 +148,6 @@ const observer = new MutationObserver(() => {
   }
   
   injectAnalyzerButton();
-  if (!lastScrapedPriceStr) {
-    observePriceChanges();
-  }
 });
 
 observer.observe(document.body, { childList: true, subtree: true });
