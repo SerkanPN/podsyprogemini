@@ -1017,6 +1017,26 @@ Return the response in JSON format exactly like this schema:
     }
   });
 
+  // New endpoint to save data scraped by the extension (to avoid API limitations)
+  apiRouter.post("/etsy/sync-extension-scrape", async (req, res) => {
+    try {
+      const payload = req.body;
+      
+      // In a real database scenario, you would save payload to MongoDB, PostgreSQL, etc.
+      // For now, we simulate saving the data successfully
+      console.log(`[SYNC] Received scraped data from extension for shop: ${payload.shopName}`);
+      if (payload.type === 'sales_analysis') {
+        console.log(`[SYNC] Sales analysis contained ${payload.data?.length || 0} unique sold listings.`);
+      }
+
+      // Simulated success response
+      return res.json({ success: true, message: "Scraped data synced to database successfully", receivedAt: Date.now() });
+    } catch (error) {
+      console.error("Sync extension scrape error:", error);
+      res.status(500).json({ error: "Failed to sync scraped data" });
+    }
+  });
+
   const codeVerifiers = new Map<string, string>();
 
   apiRouter.get("/auth/etsy/url", (req, res) => {

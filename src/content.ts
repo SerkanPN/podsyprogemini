@@ -141,9 +141,43 @@ function scrapeData() {
     
     if (shopName) {
       try {
+        // Scrape basic shop info from DOM
+        const shopTitle = document.querySelector('h1.wt-text-heading-01')?.textContent?.trim() || shopName;
+        
+        // Find sales link or text
+        let isSalesPublic = false;
+        let salesUrl = null;
+        let totalSales = '0';
+        
+        const soldLink = document.querySelector(`a[href*="/shop/${shopName}/sold"]`) as HTMLAnchorElement;
+        if (soldLink) {
+          isSalesPublic = true;
+          salesUrl = soldLink.href;
+          totalSales = soldLink.textContent?.replace(/[^0-9]/g, '') || '0';
+        } else {
+          // Try to find it in the text if not a link (closed sales)
+          // The exact selector provided by user can be brittle, so we search for text containing "Sales" near the shop header
+          const salesDivs = Array.from(document.querySelectorAll('.wt-text-body-small, .wt-text-caption'));
+          for (const div of salesDivs) {
+            const text = div.textContent?.toLowerCase() || '';
+            if (text.includes('sales') || text.includes('satis')) {
+              totalSales = text.replace(/[^0-9]/g, '') || totalSales;
+              break;
+            }
+          }
+        }
+
         chrome.storage.local.set({
           currentMode: 'shop',
-          currentId: shopName
+          currentId: shopName,
+          scrapedShopData: {
+            shopName,
+            shopTitle,
+            isSalesPublic,
+            salesUrl,
+            totalSales,
+            scrapedAt: Date.now()
+          }
         });
       } catch (e) {
         console.log('Extension context invalidated - please refresh the page');

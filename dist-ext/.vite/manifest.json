@@ -6,22 +6,22 @@
     "isEntry": true
   },
   "sidepanel.html": {
-    "file": "assets/sidepanel.html-BBP3NfO4.js",
+    "file": "assets/sidepanel.html-B5WcuENp.js",
     "name": "sidepanel.html",
     "src": "sidepanel.html",
     "isEntry": true,
     "css": [
-      "assets/sidepanel-BXVGiBwF.css"
+      "assets/sidepanel-BSrBtBRr.css"
     ]
   },
   "src/background.ts": {
-    "file": "assets/background.ts--yWtQVM0.js",
+    "file": "assets/background.ts-Dp5aXrjh.js",
     "name": "background.ts",
     "src": "src/background.ts",
     "isEntry": true
   },
   "src/content.ts": {
-    "file": "assets/content.ts-z2a4xPj6.js",
+    "file": "assets/content.ts-Dt_Xcair.js",
     "name": "content.ts",
     "src": "src/content.ts",
     "isEntry": true

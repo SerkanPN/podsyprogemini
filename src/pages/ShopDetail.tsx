@@ -46,56 +46,73 @@ export default function ShopDetail() {
     }
   };
 
+  const [salesAnalysisLoading, setSalesAnalysisLoading] = useState(false);
+  const [salesAnalysisResult, setSalesAnalysisResult] = useState<any[] | null>(null);
+  const [salesAnalysisError, setSalesAnalysisError] = useState<string | null>(null);
+
   useEffect(() => {
-    const fetchDetail = async () => {
+    const fetchScrapedData = () => {
       setLoading(true);
-      setError(null);
       try {
-        const token = localStorage.getItem('etsy_access_token');
-        const headers: Record<string, string> = {};
-        if (token && token !== 'null' && token !== 'undefined') {
-          headers['Authorization'] = `Bearer ${token}`;
-        }
-        const res = await fetch(getApiUrl(`/api/etsy/shop/${id}`), { headers });
-        if (!res.ok) {
-          const errData = await res.json();
-          throw new Error(errData.error || 'Failed to fetch shop');
-        }
-        const json = await res.json();
-        setData(json);
+        chrome.storage.local.get(['scrapedShopData'], (res) => {
+          if (res.scrapedShopData && res.scrapedShopData.shopName === id) {
+            setData(res.scrapedShopData);
+          } else {
+            setError('Please browse an Etsy shop page to load details.');
+          }
+          setLoading(false);
+        });
       } catch (err: any) {
-        setError(err.message);
-      } finally {
+        setError('Extension context error.');
         setLoading(false);
       }
     };
-    if (id) fetchDetail();
+    if (id) fetchScrapedData();
   }, [id]);
+
+  const handleStartSalesAnalysis = () => {
+    if (!data?.isSalesPublic || !data?.salesUrl) return;
+    setSalesAnalysisLoading(true);
+    setSalesAnalysisError(null);
+    setSalesAnalysisResult(null);
+
+    chrome.runtime.sendMessage(
+      { type: 'START_SALES_ANALYSIS', salesUrl: data.salesUrl, shopName: data.shopName },
+      (response) => {
+        setSalesAnalysisLoading(false);
+        if (response?.success) {
+          setSalesAnalysisResult(response.results);
+        } else {
+          setSalesAnalysisError(response?.error || 'Analysis failed');
+        }
+      }
+    );
+  };
 
   if (loading) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center p-8 h-full">
         <Loader2 className="w-8 h-8 text-indigo-500 animate-spin mb-4" />
-        <p className="text-sm text-zinc-500">Loading Shop Details...</p>
+        <p className="text-sm text-zinc-500">Loading Shop Details from page...</p>
       </div>
     );
   }
 
-  if (error || !data || !data.shop) {
+  if (error || !data) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center p-8 h-full">
         <div className="bg-red-500/10 border border-red-500/20 text-red-400 px-6 py-4 rounded-lg max-w-lg text-center">
           <p className="font-semibold mb-1">Error Loading Shop</p>
-          <p className="text-sm opacity-80">{error || 'Shop not found'}</p>
+          <p className="text-sm opacity-80">{error || 'Shop data not found in page'}</p>
           <button onClick={() => navigate(-1)} className="mt-4 inline-block text-indigo-400 hover:text-indigo-300 text-sm">
-            &larr; Back to Listings
+            &larr; Back
           </button>
         </div>
       </div>
     );
   }
 
-  const { shop, listings } = data;
+  const shop = data;
 
   return (
     <div className="space-y-6">
@@ -109,101 +126,107 @@ export default function ShopDetail() {
       <div className="bg-[#0d0d0d] border border-zinc-800 rounded-xl overflow-hidden shadow-sm p-8">
         <div className="flex flex-col md:flex-row gap-8 items-start">
           <div className="w-24 h-24 rounded-2xl bg-indigo-500/10 border-2 border-indigo-500/20 text-indigo-400 flex flex-col items-center justify-center shrink-0 shadow-lg">
-            {shop.icon_url_fullxfull ? (
-              <img src={shop.icon_url_fullxfull} alt={shop.shop_name} className="w-full h-full object-cover rounded-2xl" />
-            ) : (
-              <Store className="w-10 h-10 mb-1" />
-            )}
+            <Store className="w-10 h-10 mb-1" />
           </div>
           
           <div className="flex-1">
-            <h1 className="text-3xl font-bold tracking-tight text-white mb-2">{shop.shop_name}</h1>
-            <p className="text-lg text-zinc-400 mb-4 font-medium">{shop.title}</p>
+            <h1 className="text-3xl font-bold tracking-tight text-white mb-2">{shop.shopName}</h1>
+            <p className="text-lg text-zinc-400 mb-4 font-medium">{shop.shopTitle}</p>
             
-            {shop.url && (
-              <div className="flex items-center gap-3">
-                <a
-                  href={shop.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-zinc-900 hover:bg-zinc-800 text-white rounded-lg text-sm font-semibold transition-colors border border-zinc-700"
-                >
-                  Visit Shop on Etsy
-                  <ExternalLink className="w-4 h-4 text-zinc-400" />
-                </a>
-                <button
-                  onClick={() => toggleShop({ id: id as string, name: shop.shop_name, image: shop.icon_url_fullxfull || undefined })}
-                  className={`inline-flex items-center gap-2 px-4 py-2 border rounded-lg text-sm font-semibold transition-colors ${
-                    isShopFollowed(id as string)
-                      ? 'bg-indigo-600/20 text-indigo-400 border-indigo-500/30 hover:bg-indigo-600/30' 
-                      : 'bg-zinc-900 border-zinc-700 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800'
-                  }`}
-                >
-                  {isShopFollowed(id as string) ? <BookmarkCheck className="w-4 h-4" /> : <Bookmark className="w-4 h-4" />}
-                  {isShopFollowed(id as string) ? 'Following Shop' : 'Follow Shop'}
-                </button>
-              </div>
-            )}
+            <div className="flex items-center gap-3">
+              <a
+                href={`https://www.etsy.com/shop/${shop.shopName}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 px-4 py-2 bg-zinc-900 hover:bg-zinc-800 text-white rounded-lg text-sm font-semibold transition-colors border border-zinc-700"
+              >
+                Visit Shop on Etsy
+                <ExternalLink className="w-4 h-4 text-zinc-400" />
+              </a>
+              <button
+                onClick={() => toggleShop({ id: id as string, name: shop.shopName })}
+                className={`inline-flex items-center gap-2 px-4 py-2 border rounded-lg text-sm font-semibold transition-colors ${
+                  isShopFollowed(id as string)
+                    ? 'bg-indigo-600/20 text-indigo-400 border-indigo-500/30 hover:bg-indigo-600/30' 
+                    : 'bg-zinc-900 border-zinc-700 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800'
+                }`}
+              >
+                {isShopFollowed(id as string) ? <BookmarkCheck className="w-4 h-4" /> : <Bookmark className="w-4 h-4" />}
+                {isShopFollowed(id as string) ? 'Following Shop' : 'Follow Shop'}
+              </button>
+            </div>
           </div>
         </div>
 
         {/* Shop Metrics Dashboard Grid */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mt-8 pt-8 border-t border-zinc-800">
-          <div className="bg-zinc-900/50 p-4 border border-zinc-800 rounded-lg">
-            <p className="text-xs text-zinc-500 uppercase tracking-widest font-semibold mb-1">Active Listings</p>
-            <p className="text-xl font-bold text-white">{shop.listing_active_count || 0}</p>
-          </div>
-          <div className="bg-zinc-900/50 p-4 border border-zinc-800 rounded-lg">
-            <p className="text-xs text-zinc-500 uppercase tracking-widest font-semibold mb-1">Digital Items</p>
-            <p className="text-xl font-bold text-white">{shop.digital_listing_count || 0}</p>
-          </div>
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mt-8 pt-8 border-t border-zinc-800">
           <div className="bg-zinc-900/50 p-4 border border-zinc-800 rounded-lg">
             <p className="text-xs text-zinc-500 uppercase tracking-widest font-semibold mb-1">Total Sales</p>
-            <p className="text-xl font-bold text-white">{shop.transaction_sold_count || shop.transaction_count || 0}</p>
+            <p className="text-xl font-bold text-white">{shop.totalSales}</p>
           </div>
           <div className="bg-zinc-900/50 p-4 border border-zinc-800 rounded-lg">
-            <p className="text-xs text-zinc-500 uppercase tracking-widest font-semibold mb-1">Shop Followers</p>
-            <p className="text-xl font-bold text-white">{shop.num_favorers || 0}</p>
-          </div>
-          <div className="bg-zinc-900/50 p-4 border border-zinc-800 rounded-lg">
-            <p className="text-xs text-zinc-500 uppercase tracking-widest font-semibold mb-1">Feedback Rating</p>
-            <p className="text-sm font-bold text-yellow-500 flex items-center gap-1">
-              {shop.review_average ? shop.review_average.toFixed(1) : '0.0'} ★
-              <span className="text-[10px] text-zinc-400 font-normal">({shop.review_count || 0} reviews)</span>
-            </p>
-          </div>
-          <div className="bg-zinc-900/50 p-4 border border-zinc-800 rounded-lg">
-            <p className="text-xs text-zinc-500 uppercase tracking-widest font-semibold mb-1">Shop Owner / Login</p>
-            <p className="text-sm text-zinc-200 capitalize">{shop.login_name || 'N/A'}</p>
-          </div>
-          <div className="bg-zinc-900/50 p-4 border border-zinc-800 rounded-lg">
-            <p className="text-xs text-zinc-500 uppercase tracking-widest font-semibold mb-1">Currency Code</p>
-            <p className="text-sm text-zinc-200 uppercase font-mono">{shop.currency_code || 'USD'}</p>
-          </div>
-          <div className="bg-zinc-900/50 p-4 border border-zinc-800 rounded-lg">
-            <p className="text-xs text-zinc-500 uppercase tracking-widest font-semibold mb-1">Vacation Mode</p>
-            <p className={`text-sm font-semibold ${shop.is_vacation ? 'text-amber-400' : 'text-emerald-400'}`}>
-              {shop.is_vacation ? 'Active' : 'Disabled'}
-            </p>
-          </div>
-          <div className="bg-zinc-900/50 p-4 border border-zinc-800 rounded-lg col-span-1 md:col-span-2">
-            <p className="text-xs text-zinc-500 uppercase tracking-widest font-semibold mb-1">Custom Requests</p>
-            <p className="text-sm text-zinc-200 font-semibold">
-              {shop.accepts_custom_requests ? 'Accepts Custom Orders' : 'No Custom Orders'}
+            <p className="text-xs text-zinc-500 uppercase tracking-widest font-semibold mb-1">Sales Visibility</p>
+            <p className={`text-sm font-semibold ${shop.isSalesPublic ? 'text-emerald-400' : 'text-amber-400'}`}>
+              {shop.isSalesPublic ? 'Public' : 'Private'}
             </p>
           </div>
         </div>
-
-        {/* Shop Announcement */}
-        {shop.announcement && (
-          <div className="mt-6 p-4 bg-zinc-900/30 border border-zinc-800/85 rounded-lg">
-            <p className="text-xs text-zinc-500 uppercase tracking-widest font-semibold mb-2">Shop Announcement</p>
-            <p className="text-sm text-zinc-400 whitespace-pre-wrap italic leading-relaxed">
-              "{shop.announcement}"
-            </p>
-          </div>
-        )}
       </div>
+
+      {/* Sales Analysis Section */}
+      {shop.isSalesPublic && (
+        <div className="bg-[#0d0d0d] border border-zinc-800 rounded-xl p-8 shadow-sm relative overflow-hidden">
+          <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-emerald-500 to-teal-500"></div>
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
+                <TrendingUp className="w-5 h-5" />
+              </div>
+              <div>
+                <h2 className="text-lg font-bold text-white tracking-tight">Sales Analysis</h2>
+                <p className="text-xs text-zinc-500">Scrape and analyze all sold items in the background</p>
+              </div>
+            </div>
+            <button 
+              onClick={handleStartSalesAnalysis}
+              disabled={salesAnalysisLoading}
+              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-semibold rounded-lg transition-colors flex items-center gap-2 shadow-lg shadow-emerald-900/20"
+            >
+              {salesAnalysisLoading ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Analyzing...
+                </>
+              ) : (
+                <>
+                  <TrendingUp className="w-4 h-4" />
+                  Satış Analizi Yap
+                </>
+              )}
+            </button>
+          </div>
+
+          {salesAnalysisError && (
+            <div className="bg-red-500/10 border border-red-500/20 text-red-400 px-4 py-3 rounded-lg text-sm mb-6">
+              {salesAnalysisError}
+            </div>
+          )}
+
+          {salesAnalysisResult && (
+            <div className="mt-6 space-y-4">
+              <h3 className="text-sm font-semibold text-zinc-300">Sold Listings (Top 50)</h3>
+              <div className="max-h-96 overflow-y-auto space-y-2 pr-2">
+                {salesAnalysisResult.slice(0, 50).map((res, idx) => (
+                  <div key={idx} className="flex justify-between items-center p-3 bg-zinc-900/50 border border-zinc-800/80 rounded-lg">
+                    <span className="text-sm font-mono text-zinc-300">Listing ID: {res.listingId}</span>
+                    <span className="text-sm font-bold text-emerald-400">{res.salesCount} Sales</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* AI Shop Optimizer Section */}
       <div className="bg-[#0d0d0d] border border-zinc-800 rounded-xl p-8 shadow-sm relative overflow-hidden">
