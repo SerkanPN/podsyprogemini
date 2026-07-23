@@ -139,6 +139,7 @@ function observePriceChanges() {
 
   if (priceInterval) clearInterval(priceInterval);
 
+  priceInterval = setInterval(() => {
     const getPriceString = (): string | null => {
       const selects = Array.from(document.querySelectorAll('select[data-variation-number]')) as HTMLSelectElement[];
       for (const select of selects) {
