@@ -316,59 +316,6 @@ export default function ShopDetail() {
         )}
       </div>
 
-      <div>
-        <h2 className="text-xl font-bold tracking-tight text-white mb-4">Recent Active Listings</h2>
-        
-        {listings && listings.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {listings.map((item: any) => {
-              const image = item.images && item.images.length > 0 ? item.images[0].url_570xN : null;
-              const isHot = item.views > 200 || item.num_favorers > 10;
-
-              return (
-                <Link 
-                  key={item.listing_id} 
-                  to={`/listings/${item.listing_id}`}
-                  className="group bg-[#0d0d0d] border border-zinc-800 rounded-xl overflow-hidden hover:border-zinc-700 transition-colors shadow-sm flex flex-col"
-                >
-                  <div className="aspect-square bg-zinc-900 relative overflow-hidden">
-                    {image ? (
-                      <img src={image} alt={item.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-zinc-600 font-bold uppercase text-xs">No Image</div>
-                    )}
-                    {isHot && (
-                      <div className="absolute top-2 right-2 bg-orange-500/90 text-white p-1.5 rounded-lg shadow-lg backdrop-blur-sm">
-                        <Flame className="w-4 h-4" />
-                      </div>
-                    )}
-                  </div>
-                  <div className="p-4 flex flex-col flex-1">
-                    <p className="text-zinc-200 font-medium tracking-tight line-clamp-2 mb-2 group-hover:text-indigo-400 transition-colors">
-                      {item.title}
-                    </p>
-                    <div className="mt-auto pt-4 border-t border-zinc-800/50 flex items-center justify-between">
-                      <span className="text-zinc-300 font-mono text-sm font-semibold">
-                        {item.price?.currency_code} {(item.price?.amount / item.price?.divisor).toFixed(2)}
-                      </span>
-                      <div className="flex items-center gap-3 text-xs font-medium">
-                        <div className="flex items-center gap-1 text-emerald-400">
-                          <TrendingUp className="w-3.5 h-3.5" />
-                          {item.views || 0}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </Link>
-              );
-            })}
-          </div>
-        ) : (
-          <div className="bg-[#0d0d0d] border border-zinc-800 rounded-xl p-8 text-center">
-            <p className="text-zinc-400">No active listings found for this shop.</p>
-          </div>
-        )}
-      </div>
     </div>
   );
 }
