@@ -3,10 +3,11 @@ import { createRoot } from 'react-dom/client';
 import { MemoryRouter, Routes, Route, Navigate } from 'react-router-dom';
 import ListingDetail from './pages/ListingDetail';
 import ShopDetail from './pages/ShopDetail';
+import DashboardDetail from './pages/DashboardDetail';
 import './index.css';
 
 function SidePanelApp() {
-  const [currentMode, setCurrentMode] = useState<'listing' | 'shop' | null>(null);
+  const [currentMode, setCurrentMode] = useState<'listing' | 'shop' | 'dashboard' | null>(null);
   const [currentId, setCurrentId] = useState<string | null>(null);
   const [scrapedData, setScrapedData] = useState<any>(null);
 
@@ -28,6 +29,9 @@ function SidePanelApp() {
               setCurrentMode('shop');
               setCurrentId(match[1]);
             }
+          } else if (url.includes('etsy.com/your/shops/me/dashboard')) {
+            setCurrentMode('dashboard');
+            setCurrentId('me');
           } else {
             setCurrentMode(null);
             setCurrentId(null);
@@ -84,6 +88,7 @@ function SidePanelApp() {
         <Routes>
           <Route path="/listing/:id" element={<ListingDetail />} />
           <Route path="/shop/:id" element={<ShopDetail />} />
+          <Route path="/dashboard/:id" element={<DashboardDetail />} />
           <Route path="*" element={<Navigate to={`/${currentMode}/${currentId}`} replace />} />
         </Routes>
       </MemoryRouter>

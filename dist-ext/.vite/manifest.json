@@ -6,12 +6,12 @@
     "isEntry": true
   },
   "sidepanel.html": {
-    "file": "assets/sidepanel.html-W3Ct2QeN.js",
+    "file": "assets/sidepanel.html-CrGtx4-5.js",
     "name": "sidepanel.html",
     "src": "sidepanel.html",
     "isEntry": true,
     "css": [
-      "assets/sidepanel-8iHIy78h.css"
+      "assets/sidepanel-BXVGiBwF.css"
     ]
   },
   "src/background.ts": {
@@ -21,7 +21,7 @@
     "isEntry": true
   },
   "src/content.ts": {
-    "file": "assets/content.ts-2-Lntjno.js",
+    "file": "assets/content.ts-DHxkJHqR.js",
     "name": "content.ts",
     "src": "src/content.ts",
     "isEntry": true

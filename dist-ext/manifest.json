@@ -20,7 +20,7 @@
   "content_scripts": [
     {
       "js": [
-        "assets/content.ts-2-Lntjno.js"
+        "assets/content.ts-DHxkJHqR.js"
       ],
       "matches": [
         "*://*.etsy.com/*"
@@ -39,7 +39,7 @@
         "*://*.etsy.com/*"
       ],
       "resources": [
-        "assets/content.ts-2-Lntjno.js"
+        "assets/content.ts-DHxkJHqR.js"
       ],
       "use_dynamic_url": false
     }

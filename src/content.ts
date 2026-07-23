@@ -7,8 +7,9 @@ function injectAnalyzerButton() {
   // Only inject on specific Etsy pages
   const isListing = window.location.pathname.startsWith('/listing/');
   const isShop = window.location.pathname.startsWith('/shop/');
+  const isDashboard = window.location.pathname.startsWith('/your/shops/me/dashboard');
 
-  if (!isListing && !isShop) return;
+  if (!isListing && !isShop && !isDashboard) return;
 
   const btn = document.createElement('button');
   btn.id = 'podsypro-analyzer-fab';
@@ -117,6 +118,12 @@ function scrapeData() {
         currentId: listingId
       });
     }
+  } else if (window.location.pathname.startsWith('/your/shops/me/dashboard')) {
+    // Is Dashboard
+    chrome.storage.local.set({
+      currentMode: 'dashboard',
+      currentId: 'me'
+    });
   } else {
     // Is Shop
     const shopNameMatch = window.location.pathname.match(/\/shop\/([^\/?]+)/);
