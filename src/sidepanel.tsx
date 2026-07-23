@@ -17,32 +17,26 @@ function SidePanelApp() {
         const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
         if (tabs[0] && tabs[0].url) {
           const url = tabs[0].url;
-          if (url.includes('etsy.com/listing')) {
+          
+          const isListing = url.includes('etsy.com/listing');
+          const isDashboard = url.includes('etsy.com/your/shops') && url.includes('dashboard');
+          const isShop = url.includes('etsy.com/shop') && !isDashboard;
+
+          if (isListing) {
             const match = url.match(/\/listing\/(\d+)/);
             if (match) {
               setCurrentMode('listing');
               setCurrentId(match[1]);
             }
-          } else if (url.includes('etsy.com/shop/')) {
-            const match = url.match(/\/shop\/([^\/?]+)/);
+          } else if (isDashboard) {
+            setCurrentMode('dashboard');
+            setCurrentId('me');
+          } else if (isShop) {
+            const match = url.match(/\/shop\/([^\/?#]+)/);
             if (match) {
               setCurrentMode('shop');
               setCurrentId(match[1]);
             }
-          } else if (url.includes('etsy.com/') && !url.includes('etsy.com/listing') && !url.includes('etsy.com/your')) {
-            // It might be etsy.com/ShopName
-            const pathSegments = new URL(url).pathname.split('/').filter(Boolean);
-            if (pathSegments.length > 0) {
-              const potentialShopName = pathSegments[0];
-              const ignoredPaths = ['listing', 'cart', 'search', 'your', 'market', 'c', 'gifts'];
-              if (!ignoredPaths.includes(potentialShopName.toLowerCase())) {
-                setCurrentMode('shop');
-                setCurrentId(potentialShopName);
-              }
-            }
-          } else if (url.includes('etsy.com/your/shops/me/dashboard')) {
-            setCurrentMode('dashboard');
-            setCurrentId('me');
           } else {
             setCurrentMode(null);
             setCurrentId(null);

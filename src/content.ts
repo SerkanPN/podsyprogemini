@@ -4,10 +4,11 @@ function injectAnalyzerButton() {
   // Prevent duplicate injection
   if (document.getElementById('podsypro-analyzer-fab')) return;
 
-  // Only inject on specific Etsy pages
-  const isListing = window.location.pathname.startsWith('/listing/');
-  const isShop = window.location.pathname.startsWith('/shop/');
-  const isDashboard = window.location.pathname.startsWith('/your/shops/me/dashboard');
+  // Only inject on specific Etsy pages based on user instructions
+  const url = window.location.href;
+  const isListing = url.includes('etsy.com/listing');
+  const isDashboard = url.includes('etsy.com/your/shops') && url.includes('dashboard');
+  const isShop = url.includes('etsy.com/shop') && !isDashboard;
 
   if (!isListing && !isShop && !isDashboard) return;
 
@@ -101,7 +102,8 @@ function scrapeData() {
     let originalPriceElement = document.querySelector('div[data-buy-box-region="price"] p.wt-text-strikethrough');
     let originalPriceStr = originalPriceElement ? originalPriceElement.textContent?.trim() : null;
 
-    const listingIdMatch = window.location.pathname.match(/\/listing\/(\d+)/);
+    const url = window.location.href;
+    const listingIdMatch = url.match(/\/listing\/(\d+)/);
     const listingId = listingIdMatch ? listingIdMatch[1] : null;
 
     if (listingId) {
@@ -118,19 +120,15 @@ function scrapeData() {
         currentId: listingId
       });
     }
-  } else if (window.location.pathname.startsWith('/your/shops/me/dashboard')) {
+  } else if (window.location.href.includes('etsy.com/your/shops') && window.location.href.includes('dashboard')) {
     // Is Dashboard
     chrome.storage.local.set({
       currentMode: 'dashboard',
       currentId: 'me'
     });
-  } else {
-    // Is Shop - Extract name for either /shop/NAME or /NAME pattern
-    // Etsy shop pages can be either /shop/ShopName or just /ShopName (if not matching known Etsy routes)
-    const shopNameMatch = window.location.pathname.match(/\/shop\/([^\/?]+)/);
-    
-    // We also need to avoid matching generic Etsy pages like /cart, /gifts, etc. 
-    // This is handled by sidepanel checking url.includes('etsy.com/shop/') but let's be safe here
+  } else if (window.location.href.includes('etsy.com/shop')) {
+    // Is Shop - robustly extract shop name ignoring query params
+    const shopNameMatch = window.location.href.match(/\/shop\/([^/?#]+)/);
     const shopName = shopNameMatch ? shopNameMatch[1] : null;
     
     if (shopName) {
@@ -138,21 +136,6 @@ function scrapeData() {
         currentMode: 'shop',
         currentId: shopName
       });
-    } else {
-      // It might be a custom shop URL like etsy.com/ShopName
-      // Check if the page has a shop header (data-shop-name or similar)
-      const shopHeader = document.querySelector('h1.wt-text-heading-01');
-      if (shopHeader && window.location.pathname !== '/') {
-        const potentialShopName = window.location.pathname.split('/')[1];
-        // Ignore common non-shop paths
-        const ignoredPaths = ['listing', 'cart', 'search', 'your', 'market', 'c', 'gifts'];
-        if (potentialShopName && !ignoredPaths.includes(potentialShopName.toLowerCase())) {
-          chrome.storage.local.set({
-            currentMode: 'shop',
-            currentId: potentialShopName
-          });
-        }
-      }
     }
   }
 }
