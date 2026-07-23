@@ -106,6 +106,7 @@ function scrapeData() {
     const listingIdMatch = url.match(/\/listing\/(\d+)/);
     const listingId = listingIdMatch ? listingIdMatch[1] : null;
 
+  try {
     if (listingId) {
       chrome.storage.local.set({
         scrapedListingData: {
@@ -120,22 +121,33 @@ function scrapeData() {
         currentId: listingId
       });
     }
-  } else if (window.location.href.includes('etsy.com/your/shops') && window.location.href.includes('dashboard')) {
-    // Is Dashboard
+  } catch (e) {
+    console.log('Extension context invalidated - please refresh the page');
+  }
+} else if (window.location.href.includes('etsy.com/your/shops') && window.location.href.includes('dashboard')) {
+  // Is Dashboard
+  try {
     chrome.storage.local.set({
       currentMode: 'dashboard',
       currentId: 'me'
     });
-  } else if (window.location.href.includes('etsy.com/shop')) {
+  } catch (e) {
+    console.log('Extension context invalidated - please refresh the page');
+  }
+} else if (window.location.href.includes('etsy.com/shop')) {
     // Is Shop - robustly extract shop name ignoring query params
     const shopNameMatch = window.location.href.match(/\/shop\/([^/?#]+)/);
     const shopName = shopNameMatch ? shopNameMatch[1] : null;
     
     if (shopName) {
-      chrome.storage.local.set({
-        currentMode: 'shop',
-        currentId: shopName
-      });
+      try {
+        chrome.storage.local.set({
+          currentMode: 'shop',
+          currentId: shopName
+        });
+      } catch (e) {
+        console.log('Extension context invalidated - please refresh the page');
+      }
     }
   }
 }
