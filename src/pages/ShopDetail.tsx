@@ -5,7 +5,8 @@ import { useFollowStore } from '../stores/useFollowStore';
 
 const getApiUrl = (path: string) => {
   if (window.location.protocol.includes('chrome-extension')) {
-    return `http://localhost:3000${path}`;
+    const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+    return `${baseUrl}${path}`;
   }
   return path;
 };

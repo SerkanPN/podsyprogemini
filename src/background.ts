@@ -89,7 +89,8 @@ async function handleSalesAnalysis(baseSalesUrl: string, shopName: string) {
 
     // Note: We use a relative or absolute URL to backend depending on where this is running.
     // For extension background, we need the absolute API URL.
-    const apiUrl = 'http://localhost:3000/api/etsy/sync-extension-scrape';
+    const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+    const apiUrl = `${baseUrl}/api/etsy/sync-extension-scrape`;
     await fetch(apiUrl, {
       method: 'POST',
       headers,

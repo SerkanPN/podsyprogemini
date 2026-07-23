@@ -6,16 +6,16 @@
     "isEntry": true
   },
   "sidepanel.html": {
-    "file": "assets/sidepanel.html-B5WcuENp.js",
+    "file": "assets/sidepanel.html-AC2PtETK.js",
     "name": "sidepanel.html",
     "src": "sidepanel.html",
     "isEntry": true,
     "css": [
-      "assets/sidepanel-BSrBtBRr.css"
+      "assets/sidepanel-BO04h6Xt.css"
     ]
   },
   "src/background.ts": {
-    "file": "assets/background.ts-Dp5aXrjh.js",
+    "file": "assets/background.ts-DQrMdp4z.js",
     "name": "background.ts",
     "src": "src/background.ts",
     "isEntry": true
