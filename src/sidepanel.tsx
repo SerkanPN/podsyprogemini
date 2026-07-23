@@ -23,11 +23,22 @@ function SidePanelApp() {
               setCurrentMode('listing');
               setCurrentId(match[1]);
             }
-          } else if (url.includes('etsy.com/shop')) {
+          } else if (url.includes('etsy.com/shop/')) {
             const match = url.match(/\/shop\/([^\/?]+)/);
             if (match) {
               setCurrentMode('shop');
               setCurrentId(match[1]);
+            }
+          } else if (url.includes('etsy.com/') && !url.includes('etsy.com/listing') && !url.includes('etsy.com/your')) {
+            // It might be etsy.com/ShopName
+            const pathSegments = new URL(url).pathname.split('/').filter(Boolean);
+            if (pathSegments.length > 0) {
+              const potentialShopName = pathSegments[0];
+              const ignoredPaths = ['listing', 'cart', 'search', 'your', 'market', 'c', 'gifts'];
+              if (!ignoredPaths.includes(potentialShopName.toLowerCase())) {
+                setCurrentMode('shop');
+                setCurrentId(potentialShopName);
+              }
             }
           } else if (url.includes('etsy.com/your/shops/me/dashboard')) {
             setCurrentMode('dashboard');

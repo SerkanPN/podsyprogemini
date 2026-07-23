@@ -125,14 +125,34 @@ function scrapeData() {
       currentId: 'me'
     });
   } else {
-    // Is Shop
+    // Is Shop - Extract name for either /shop/NAME or /NAME pattern
+    // Etsy shop pages can be either /shop/ShopName or just /ShopName (if not matching known Etsy routes)
     const shopNameMatch = window.location.pathname.match(/\/shop\/([^\/?]+)/);
+    
+    // We also need to avoid matching generic Etsy pages like /cart, /gifts, etc. 
+    // This is handled by sidepanel checking url.includes('etsy.com/shop/') but let's be safe here
     const shopName = shopNameMatch ? shopNameMatch[1] : null;
+    
     if (shopName) {
       chrome.storage.local.set({
         currentMode: 'shop',
         currentId: shopName
       });
+    } else {
+      // It might be a custom shop URL like etsy.com/ShopName
+      // Check if the page has a shop header (data-shop-name or similar)
+      const shopHeader = document.querySelector('h1.wt-text-heading-01');
+      if (shopHeader && window.location.pathname !== '/') {
+        const potentialShopName = window.location.pathname.split('/')[1];
+        // Ignore common non-shop paths
+        const ignoredPaths = ['listing', 'cart', 'search', 'your', 'market', 'c', 'gifts'];
+        if (potentialShopName && !ignoredPaths.includes(potentialShopName.toLowerCase())) {
+          chrome.storage.local.set({
+            currentMode: 'shop',
+            currentId: potentialShopName
+          });
+        }
+      }
     }
   }
 }
