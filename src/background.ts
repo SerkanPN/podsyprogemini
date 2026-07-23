@@ -10,7 +10,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === 'OPEN_SIDEPANEL') {
     // Attempt to open the side panel on the active tab
     if (sender.tab && sender.tab.id) {
-      chrome.sidePanel.open({ tabId: sender.tab.id });
+      chrome.sidePanel.open({ tabId: sender.tab.id }).catch(console.warn);
     }
   }
 });
@@ -19,7 +19,7 @@ const checkTab = async (tabId: number) => {
   try {
     const tab = await chrome.tabs.get(tabId);
     if (tab.url && tab.url.includes('etsy.com')) {
-      await chrome.sidePanel.setOptions({ tabId, enabled: true });
+      await chrome.sidePanel.setOptions({ tabId, path: 'sidepanel.html', enabled: true });
     } else {
       await chrome.sidePanel.setOptions({ tabId, enabled: false });
     }
