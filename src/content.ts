@@ -61,13 +61,37 @@ function scrapeData() {
     let itemAvg = itemAvgMatch ? parseFloat(itemAvgMatch[1]) : null;
     
     const getPriceString = (): string | null => {
-      const valElem = document.querySelector('div[data-buy-box-region="price"] .currency-value');
-      if (valElem && valElem.textContent) return valElem.textContent.trim();
+      const selects = Array.from(document.querySelectorAll('select[data-variation-number]')) as HTMLSelectElement[];
+      for (const select of selects) {
+        if (select.selectedIndex > 0) {
+           const optionText = select.options[select.selectedIndex].textContent || '';
+           const match = optionText.match(/\\([^0-9]*([0-9]+[.,][0-9]{2})[^)]*\\)/);
+           if (match) return match[1];
+        }
+      }
 
-      const titleElem = document.querySelector('div[data-buy-box-region="price"] p.wt-text-title-03') || 
-                        document.querySelector('div[data-buy-box-region="price"] p.wt-text-title-01');
-      if (titleElem && titleElem.textContent) return titleElem.textContent.trim();
-
+      const selectors = [
+        'div[data-buy-box-region="price"]',
+        '.wt-text-title-03',
+        '.wt-text-title-01',
+        '.currency-value',
+        '[data-buy-box-region="price"] p'
+      ];
+      
+      for (let sel of selectors) {
+        let elems = Array.from(document.querySelectorAll(sel));
+        for (let el of elems) {
+           if (el.closest('.wt-text-strikethrough') || el.classList.contains('wt-text-strikethrough')) continue;
+           
+           let clone = el.cloneNode(true) as HTMLElement;
+           let strikes = clone.querySelectorAll('.wt-text-strikethrough, .wt-screen-reader-only, .wt-badge');
+           strikes.forEach(s => s.remove());
+           
+           let text = clone.textContent || '';
+           let match = text.match(/([0-9]+[.,][0-9]{2})/);
+           if (match) return match[1];
+        }
+      }
       return null;
     };
 
@@ -115,15 +139,38 @@ function observePriceChanges() {
 
   if (priceInterval) clearInterval(priceInterval);
 
-  priceInterval = setInterval(() => {
     const getPriceString = (): string | null => {
-      const valElem = document.querySelector('div[data-buy-box-region="price"] .currency-value');
-      if (valElem && valElem.textContent) return valElem.textContent.trim();
+      const selects = Array.from(document.querySelectorAll('select[data-variation-number]')) as HTMLSelectElement[];
+      for (const select of selects) {
+        if (select.selectedIndex > 0) {
+           const optionText = select.options[select.selectedIndex].textContent || '';
+           const match = optionText.match(/\\([^0-9]*([0-9]+[.,][0-9]{2})[^)]*\\)/);
+           if (match) return match[1];
+        }
+      }
 
-      const titleElem = document.querySelector('div[data-buy-box-region="price"] p.wt-text-title-03') || 
-                        document.querySelector('div[data-buy-box-region="price"] p.wt-text-title-01');
-      if (titleElem && titleElem.textContent) return titleElem.textContent.trim();
-
+      const selectors = [
+        'div[data-buy-box-region="price"]',
+        '.wt-text-title-03',
+        '.wt-text-title-01',
+        '.currency-value',
+        '[data-buy-box-region="price"] p'
+      ];
+      
+      for (let sel of selectors) {
+        let elems = Array.from(document.querySelectorAll(sel));
+        for (let el of elems) {
+           if (el.closest('.wt-text-strikethrough') || el.classList.contains('wt-text-strikethrough')) continue;
+           
+           let clone = el.cloneNode(true) as HTMLElement;
+           let strikes = clone.querySelectorAll('.wt-text-strikethrough, .wt-screen-reader-only, .wt-badge');
+           strikes.forEach(s => s.remove());
+           
+           let text = clone.textContent || '';
+           let match = text.match(/([0-9]+[.,][0-9]{2})/);
+           if (match) return match[1];
+        }
+      }
       return null;
     };
 
