@@ -20,10 +20,12 @@
   "content_scripts": [
     {
       "js": [
-        "assets/content.ts-Dt_Xcair.js"
+        "assets/content.ts-DBPQi4Lf.js"
       ],
       "matches": [
-        "*://*.etsy.com/*"
+        "*://*.etsy.com/*",
+        "*://localhost/*",
+        "*://*.podsy.pro/*"
       ]
     }
   ],
@@ -36,10 +38,12 @@
   "web_accessible_resources": [
     {
       "matches": [
-        "*://*.etsy.com/*"
+        "*://*.etsy.com/*",
+        "*://*.podsy.pro/*",
+        "*://localhost/*"
       ],
       "resources": [
-        "assets/content.ts-Dt_Xcair.js"
+        "assets/content.ts-DBPQi4Lf.js"
       ],
       "use_dynamic_url": false
     }

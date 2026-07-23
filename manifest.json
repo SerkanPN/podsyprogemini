@@ -19,7 +19,7 @@
   },
   "content_scripts": [
     {
-      "matches": ["*://*.etsy.com/*"],
+      "matches": ["*://*.etsy.com/*", "*://localhost/*", "*://*.podsy.pro/*"],
       "js": ["src/content.ts"]
     }
   ],

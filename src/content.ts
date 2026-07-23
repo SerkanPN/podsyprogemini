@@ -1,5 +1,17 @@
 // PodsyPro Etsy Analyzer Content Script
 
+// Sync token to web app if we are on it
+if (window.location.hostname.includes('podsy.pro') || window.location.hostname === 'localhost') {
+  chrome.storage.local.get(['etsy_access_token'], (res) => {
+    if (res.etsy_access_token && localStorage.getItem('etsy_access_token') !== res.etsy_access_token) {
+      localStorage.setItem('etsy_access_token', res.etsy_access_token);
+      window.dispatchEvent(new Event('storage'));
+      window.dispatchEvent(new Event('auth_status_changed'));
+      console.log('[PodsyPro] Synced authentication token from extension to web app.');
+    }
+  });
+}
+
 function injectAnalyzerButton() {
   // Prevent duplicate injection
   if (document.getElementById('podsypro-analyzer-fab')) return;

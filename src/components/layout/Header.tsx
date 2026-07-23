@@ -1,10 +1,77 @@
 import { Search, Heart } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 
 export default function Header() {
   const [query, setQuery] = useState('');
   const navigate = useNavigate();
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
+    return !!localStorage.getItem('etsy_access_token');
+  });
+
+  useEffect(() => {
+    const checkAuth = () => {
+      setIsAuthenticated(!!localStorage.getItem('etsy_access_token'));
+    };
+    window.addEventListener('storage', checkAuth);
+    window.addEventListener('auth_status_changed', checkAuth);
+    
+    const handleMessage = async (event: MessageEvent) => {
+      const origin = event.origin;
+      if (!origin.endsWith('.run.app') && !origin.includes('localhost') && origin !== window.location.origin) {
+        return;
+      }
+      if (event.data?.type === 'OAUTH_AUTH_SUCCESS') {
+        const { code, state } = event.data;
+        try {
+          const response = await fetch('/api/auth/etsy/token', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+              code, 
+              state, 
+              redirect_uri: `${window.location.origin}/auth/callback` 
+            })
+          });
+          if (!response.ok) throw new Error('Token exchange failed');
+          const data = await response.json();
+          if (data.access_token) {
+            localStorage.setItem('etsy_access_token', data.access_token);
+            window.dispatchEvent(new Event('auth_status_changed'));
+            window.dispatchEvent(new Event('storage'));
+          }
+        } catch (err) {
+          console.error("Token exchange failed", err);
+        }
+      }
+    };
+    window.addEventListener('message', handleMessage);
+
+    return () => {
+      window.removeEventListener('storage', checkAuth);
+      window.removeEventListener('auth_status_changed', checkAuth);
+      window.removeEventListener('message', handleMessage);
+    };
+  }, []);
+
+  const handleSignIn = async () => {
+    try {
+      const res = await fetch(`/api/auth/etsy/url?redirect_uri=${encodeURIComponent(window.location.origin + '/auth/callback')}`);
+      const { url } = await res.json();
+      const width = 600, height = 700;
+      const left = window.screenX + (window.outerWidth - width) / 2;
+      const top = window.screenY + (window.outerHeight - height) / 2;
+      window.open(url, 'EtsyLogin', `width=${width},height=${height},left=${left},top=${top}`);
+    } catch (err) {
+      console.error("Auth error", err);
+    }
+  };
+
+  const handleSignOut = () => {
+    localStorage.removeItem('etsy_access_token');
+    window.dispatchEvent(new Event('auth_status_changed'));
+    window.dispatchEvent(new Event('storage'));
+  };
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -41,9 +108,21 @@ export default function Header() {
         </div>
 
         <div className="flex items-center gap-4 flex-shrink-0">
-          <button className="text-sm font-semibold text-zinc-300 hover:text-white hidden sm:block px-3 py-2 rounded-full hover:bg-zinc-800 transition-colors">
-            Sign in
-          </button>
+          {isAuthenticated ? (
+            <button 
+              onClick={handleSignOut}
+              className="text-sm font-semibold text-emerald-400 hover:text-emerald-300 hidden sm:block px-3 py-2 rounded-full hover:bg-zinc-800 transition-colors"
+            >
+              Connected
+            </button>
+          ) : (
+            <button 
+              onClick={handleSignIn}
+              className="text-sm font-semibold text-zinc-300 hover:text-white hidden sm:block px-3 py-2 rounded-full hover:bg-zinc-800 transition-colors"
+            >
+              Sign in
+            </button>
+          )}
           <button className="p-2 text-zinc-300 hover:text-white hover:bg-zinc-800 rounded-full transition-colors">
             <Heart className="w-5 h-5" />
           </button>
