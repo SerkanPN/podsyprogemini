@@ -60,18 +60,18 @@ function scrapeData() {
     let itemAvgMatch = document.body.innerText.match(/Item average.*?([0-9.]+)/i);
     let itemAvg = itemAvgMatch ? parseFloat(itemAvgMatch[1]) : null;
     
-    // Scrape Price and Original Price from the buy box
-    let priceElement = document.querySelector('#listing-page-cart > div.wt-display-flex-xs.wt-align-items-center.wt-flex-wrap > div > div > p > span') || document.querySelector('div[data-buy-box-region="price"] p:not(.wt-text-strikethrough):not(.wt-text-caption)');
-    
-    // Also try checking `.wt-screen-reader-only` inside the price area for screen readers if text is hidden
-    let priceStr = priceElement ? priceElement.textContent?.trim() : null;
-    if (!priceStr) {
-      // Fallback selector just in case
-      let fallbackElement = document.querySelector('div[data-buy-box-region="price"]');
-      if (fallbackElement) {
-        priceStr = fallbackElement.textContent?.replace(/[a-zA-Z]/g, '')?.trim() || null;
-      }
-    }
+    const getPriceString = (): string | null => {
+      const valElem = document.querySelector('div[data-buy-box-region="price"] .currency-value');
+      if (valElem && valElem.textContent) return valElem.textContent.trim();
+
+      const titleElem = document.querySelector('div[data-buy-box-region="price"] p.wt-text-title-03') || 
+                        document.querySelector('div[data-buy-box-region="price"] p.wt-text-title-01');
+      if (titleElem && titleElem.textContent) return titleElem.textContent.trim();
+
+      return null;
+    };
+
+    let priceStr = getPriceString();
 
     let originalPriceElement = document.querySelector('div[data-buy-box-region="price"] p.wt-text-strikethrough');
     let originalPriceStr = originalPriceElement ? originalPriceElement.textContent?.trim() : null;
@@ -116,15 +116,18 @@ function observePriceChanges() {
   if (priceInterval) clearInterval(priceInterval);
 
   priceInterval = setInterval(() => {
-    let priceElement = document.querySelector('#listing-page-cart > div.wt-display-flex-xs.wt-align-items-center.wt-flex-wrap > div > div > p > span') || document.querySelector('div[data-buy-box-region="price"] p:not(.wt-text-strikethrough):not(.wt-text-caption)');
-    let priceStr = priceElement ? priceElement.textContent?.trim() : null;
-    
-    if (!priceStr) {
-      let fallbackElement = document.querySelector('div[data-buy-box-region="price"]');
-      if (fallbackElement) {
-        priceStr = fallbackElement.textContent?.replace(/[a-zA-Z]/g, '')?.trim() || null;
-      }
-    }
+    const getPriceString = (): string | null => {
+      const valElem = document.querySelector('div[data-buy-box-region="price"] .currency-value');
+      if (valElem && valElem.textContent) return valElem.textContent.trim();
+
+      const titleElem = document.querySelector('div[data-buy-box-region="price"] p.wt-text-title-03') || 
+                        document.querySelector('div[data-buy-box-region="price"] p.wt-text-title-01');
+      if (titleElem && titleElem.textContent) return titleElem.textContent.trim();
+
+      return null;
+    };
+
+    let priceStr = getPriceString();
     
     if (priceStr && priceStr !== lastScrapedPriceStr) {
       lastScrapedPriceStr = priceStr;
@@ -133,6 +136,16 @@ function observePriceChanges() {
     }
   }, 500); // Check every 500ms
 }
+
+// Also immediately listen to variation selects changing to act faster than 500ms
+document.addEventListener('change', (e) => {
+  const target = e.target as HTMLElement;
+  if (target && target.tagName === 'SELECT' && target.classList.contains('wt-select__element')) {
+    setTimeout(() => {
+      scrapeData();
+    }, 250); // small delay for DOM update
+  }
+});
 
 let lastUrl = window.location.href;
 
