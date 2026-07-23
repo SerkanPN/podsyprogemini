@@ -201,7 +201,7 @@ export default function ShopDetail() {
               ) : (
                 <>
                   <TrendingUp className="w-4 h-4" />
-                  Satış Analizi Yap
+                  Analyze Sales
                 </>
               )}
             </button>
@@ -219,7 +219,15 @@ export default function ShopDetail() {
               <div className="max-h-96 overflow-y-auto space-y-2 pr-2">
                 {salesAnalysisResult.slice(0, 50).map((res, idx) => (
                   <div key={idx} className="flex justify-between items-center p-3 bg-zinc-900/50 border border-zinc-800/80 rounded-lg">
-                    <span className="text-sm font-mono text-zinc-300">Listing ID: {res.listingId}</span>
+                    <a 
+                      href={`https://www.etsy.com/listing/${res.listingId}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-sm font-mono text-zinc-300 hover:text-indigo-400 hover:underline flex items-center gap-2"
+                    >
+                      Listing ID: {res.listingId}
+                      <ExternalLink className="w-3 h-3" />
+                    </a>
                     <span className="text-sm font-bold text-emerald-400">{res.salesCount} Sales</span>
                   </div>
                 ))}

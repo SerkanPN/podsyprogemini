@@ -27,48 +27,47 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 });
 
 async function handleSalesAnalysis(baseSalesUrl: string, shopName: string) {
-  // We'll scrape the first page to determine how many pages exist
-  const firstPageUrl = `${baseSalesUrl}${baseSalesUrl.includes('?') ? '&' : '?'}ref=pagination&page=1`;
-  const res = await fetch(firstPageUrl);
-  if (!res.ok) throw new Error('Failed to fetch sales page');
-  const html = await res.text();
-
-  // Find max page using a regex for data-page="X" or href="...page=X"
-  let maxPage = 1;
-  const pageMatches = [...html.matchAll(/data-page="(\d+)"/g)];
-  if (pageMatches.length > 0) {
-    maxPage = Math.max(...pageMatches.map(m => parseInt(m[1], 10)));
-  } else {
-    // Fallback: look for ?page=X or &page=X in links
-    const linkPageMatches = [...html.matchAll(/page=(\d+)/g)];
-    if (linkPageMatches.length > 0) {
-      maxPage = Math.max(...linkPageMatches.map(m => parseInt(m[1], 10)));
-    }
-  }
-
-  // Cap at 100 pages to avoid extremely long runs or bans, unless user wants more.
-  if (maxPage > 100) maxPage = 100;
-
   const listingCounts: Record<string, number> = {};
+  let page = 1;
+  let dynamicMaxPage = 1;
 
-  // Extract from first page
-  extractListingsFromHtml(html, listingCounts);
+  while (page <= 250) { // Hard cap at 250 pages to avoid infinite loops (~9000-12000 sales)
+    try {
+      const pageUrl = `${baseSalesUrl}${baseSalesUrl.includes('?') ? '&' : '?'}ref=pagination&page=${page}`;
+      const pageRes = await fetch(pageUrl);
+      if (!pageRes.ok) break;
+      
+      const html = await pageRes.text();
+      const newCount = extractListingsFromHtml(html, listingCounts);
+      
+      if (newCount === 0 && page > 1) {
+        break; // Reached a page with no listings
+      }
 
-  // Fetch remaining pages
-  for (let i = 2; i <= maxPage; i++) {
+      // Dynamically check max page on every page load to push the limit further
+      const pageMatches = [...html.matchAll(/data-page="(\d+)"/g)];
+      const linkPageMatches = [...html.matchAll(/page=(\d+)/g)];
+      const allPageNums = [...pageMatches, ...linkPageMatches].map(m => parseInt(m[1], 10)).filter(n => !isNaN(n));
+      if (allPageNums.length > 0) {
+        const foundMax = Math.max(...allPageNums);
+        if (foundMax > dynamicMaxPage) {
+          dynamicMaxPage = foundMax;
+        }
+      }
+
+      // Stop if we've passed the maximum known page
+      if (page >= dynamicMaxPage && page > 1) {
+        break;
+      }
+
+    } catch (err) {
+      console.warn(`Failed to fetch sales page ${page}`, err);
+      break;
+    }
+
+    page++;
     // Artificial delay to prevent rate limiting (Etsy might block if too fast)
     await new Promise(resolve => setTimeout(resolve, 600)); 
-    
-    try {
-      const pageUrl = `${baseSalesUrl}${baseSalesUrl.includes('?') ? '&' : '?'}ref=pagination&page=${i}`;
-      const pageRes = await fetch(pageUrl);
-      if (pageRes.ok) {
-        const pageHtml = await pageRes.text();
-        extractListingsFromHtml(pageHtml, listingCounts);
-      }
-    } catch (err) {
-      console.warn(`Failed to fetch sales page ${i}`, err);
-    }
   }
 
   // Convert to array and sort
@@ -124,4 +123,6 @@ function extractListingsFromHtml(html: string, counts: Record<string, number>) {
   foundOnPage.forEach(id => {
     counts[id] = (counts[id] || 0) + 1;
   });
+
+  return foundOnPage.size;
 }

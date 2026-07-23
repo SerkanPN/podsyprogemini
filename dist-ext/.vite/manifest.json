@@ -6,7 +6,7 @@
     "isEntry": true
   },
   "sidepanel.html": {
-    "file": "assets/sidepanel.html-BgKnZnD4.js",
+    "file": "assets/sidepanel.html-Czyid3Zv.js",
     "name": "sidepanel.html",
     "src": "sidepanel.html",
     "isEntry": true,
@@ -15,7 +15,7 @@
     ]
   },
   "src/background.ts": {
-    "file": "assets/background.ts-DQrMdp4z.js",
+    "file": "assets/background.ts-CHKNdpSu.js",
     "name": "background.ts",
     "src": "src/background.ts",
     "isEntry": true
