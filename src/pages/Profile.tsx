@@ -11,8 +11,15 @@ export default function Profile() {
     // In production, this uses the same domain. In dev, Vite proxies it.
     // If not proxied, we might need the full URL, but standard is /api
     fetch('/api/profile')
-      .then(res => {
-        if (!res.ok) throw new Error('Failed to fetch');
+      .then(async res => {
+        const contentType = res.headers.get("content-type");
+        if (contentType && contentType.includes("text/html")) {
+          throw new Error("Backend route not found. Did you restart the Node.js server from cPanel?");
+        }
+        if (!res.ok) {
+          const text = await res.text();
+          throw new Error(`Server error: ${res.status} ${text}`);
+        }
         return res.json();
       })
       .then(data => {
