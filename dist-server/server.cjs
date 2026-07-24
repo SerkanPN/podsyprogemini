@@ -1015,7 +1015,7 @@ Return the response in JSON format exactly like this schema:
       }
     }));
     app.get("*", (req, res) => {
-      res.sendFile(import_path.default.join(distPath, "index.html"));
+      res.sendFile(import_path.default.join(distPath, "app.html"));
     });
   }
   server.listen(PORT, "0.0.0.0", () => {
