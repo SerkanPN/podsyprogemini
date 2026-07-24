@@ -1146,6 +1146,7 @@ Return the response in JSON format exactly like this schema:
   apiRouter.get("/profile", async (req, res) => {
     try {
       let user = await prisma.user.findFirst({
+        orderBy: { createdAt: 'desc' },
         include: { shops: true }
       });
       
