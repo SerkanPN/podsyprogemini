@@ -5,6 +5,29 @@ import { useNavigate, Link } from 'react-router-dom';
 export default function Header() {
   const [query, setQuery] = useState('');
   const navigate = useNavigate();
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
+    return !!localStorage.getItem('etsy_access_token');
+  });
+
+  useEffect(() => {
+    const handleStorage = () => {
+      setIsAuthenticated(!!localStorage.getItem('etsy_access_token'));
+    };
+    window.addEventListener('storage', handleStorage);
+    
+    const handleMessage = (event: MessageEvent) => {
+      if (event.data?.type === 'PODSY_AUTH_SYNC' && event.data?.token) {
+        localStorage.setItem('etsy_access_token', event.data.token);
+        setIsAuthenticated(true);
+      }
+    };
+    window.addEventListener('message', handleMessage);
+
+    return () => {
+      window.removeEventListener('storage', handleStorage);
+      window.removeEventListener('message', handleMessage);
+    };
+  }, []);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -41,9 +64,21 @@ export default function Header() {
         </div>
 
         <div className="flex items-center gap-4 flex-shrink-0">
-          <button className="text-sm font-semibold text-zinc-300 hover:text-white hidden sm:block px-3 py-2 rounded-full hover:bg-zinc-800 transition-colors">
-            Sign in
-          </button>
+          {isAuthenticated ? (
+            <button 
+              onClick={() => navigate('/my-shop')}
+              className="text-sm font-semibold text-emerald-400 hover:text-emerald-300 hidden sm:block px-3 py-2 rounded-full hover:bg-zinc-800 transition-colors"
+            >
+              Connected
+            </button>
+          ) : (
+            <button 
+              onClick={() => alert("Lütfen giriş yapmak için PodsyPro eklentisini kullanın.")}
+              className="text-sm font-semibold text-zinc-300 hover:text-white hidden sm:block px-3 py-2 rounded-full hover:bg-zinc-800 transition-colors"
+            >
+              Sign in
+            </button>
+          )}
           <button className="p-2 text-zinc-300 hover:text-white hover:bg-zinc-800 rounded-full transition-colors">
             <Heart className="w-5 h-5" />
           </button>

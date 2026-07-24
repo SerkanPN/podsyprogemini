@@ -4,9 +4,13 @@
 if (window.location.hostname.includes('podsy.pro') || window.location.hostname === 'localhost') {
   chrome.storage.local.get(['etsy_access_token'], (res) => {
     if (res.etsy_access_token && localStorage.getItem('etsy_access_token') !== res.etsy_access_token) {
+      // Direct inject
       localStorage.setItem('etsy_access_token', res.etsy_access_token);
       window.dispatchEvent(new Event('storage'));
-      window.dispatchEvent(new Event('auth_status_changed'));
+      
+      // Also postMessage so React can catch it immediately
+      window.postMessage({ type: 'PODSY_AUTH_SYNC', token: res.etsy_access_token }, '*');
+      
       console.log('[PodsyPro] Synced authentication token from extension to web app.');
     }
   });
