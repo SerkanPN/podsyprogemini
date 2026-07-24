@@ -1,0 +1,1 @@
+export default function MarketAnalysis() { return <div className="p-6 text-white"><h1 className="text-2xl font-bold">Pazar Analizi</h1></div>; }

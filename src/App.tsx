@@ -5,14 +5,21 @@ import { useAppStore } from './stores/useAppStore';
 
 import Layout from './components/layout/Layout';
 import Dashboard from './pages/Dashboard';
-import Listings from './pages/Listings';
-import KeywordAnalysis from './pages/KeywordAnalysis';
-import ListingDetail from './pages/ListingDetail';
+import Profile from './pages/Profile';
+import MyFavs from './pages/MyFavs';
 import ShopDetail from './pages/ShopDetail';
-import AIStudio from './pages/AIStudio';
-import Reports from './pages/Reports';
-import PodAssets from './pages/PodAssets';
-import Followed from './pages/Followed';
+
+import KeywordAnalysis from './pages/KeywordAnalysis';
+import TrendAnalysis from './pages/TrendAnalysis';
+import ListingAnalysis from './pages/ListingAnalysis';
+import ShopAnalysis from './pages/ShopAnalysis';
+import CompetitorAnalysis from './pages/CompetitorAnalysis';
+import MarketAnalysis from './pages/MarketAnalysis';
+
+import MockupStudio from './pages/MockupStudio';
+import IdeaStudio from './pages/IdeaStudio';
+import CloneStudio from './pages/CloneStudio';
+import ReportStudio from './pages/ReportStudio';
 
 export default function App() {
   const { connect, disconnect } = useSocketStore();
@@ -37,14 +44,25 @@ export default function App() {
         <Route path="/" element={<Layout />}>
           <Route index element={<Navigate to="/dashboard" replace />} />
           <Route path="dashboard" element={<Dashboard />} />
-          <Route path="listings" element={<Listings />} />
+          
+          {/* Profil Kategorisi */}
+          <Route path="profile" element={<Profile />} />
+          <Route path="my-favs" element={<MyFavs />} />
+          <Route path="my-shop" element={<ShopDetail />} />
+
+          {/* Analiz Area */}
           <Route path="keyword-analysis" element={<KeywordAnalysis />} />
-          <Route path="listings/:id" element={<ListingDetail />} />
-          <Route path="shops/:id" element={<ShopDetail />} />
-          <Route path="following" element={<Followed />} />
-          <Route path="ai-studio" element={<AIStudio />} />
-          <Route path="reports" element={<Reports />} />
-          <Route path="pod-assets" element={<PodAssets />} />
+          <Route path="trend-analysis" element={<TrendAnalysis />} />
+          <Route path="listing-analysis" element={<ListingAnalysis />} />
+          <Route path="shop-analysis" element={<ShopAnalysis />} />
+          <Route path="competitor-analysis" element={<CompetitorAnalysis />} />
+          <Route path="market-analysis" element={<MarketAnalysis />} />
+
+          {/* PODSY AI STUDIO */}
+          <Route path="ai-studio/mockup" element={<MockupStudio />} />
+          <Route path="ai-studio/idea" element={<IdeaStudio />} />
+          <Route path="ai-studio/clone" element={<CloneStudio />} />
+          <Route path="ai-studio/report" element={<ReportStudio />} />
         </Route>
       </Routes>
     </BrowserRouter>

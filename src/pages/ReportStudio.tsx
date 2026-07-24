@@ -1,0 +1,1 @@
+export default function ReportStudio() { return <div className="p-6 text-white"><h1 className="text-2xl font-bold">Report Studio</h1></div>; }

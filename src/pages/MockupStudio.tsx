@@ -1,0 +1,1 @@
+export default function MockupStudio() { return <div className="p-6 text-white"><h1 className="text-2xl font-bold">Mock-up Studio</h1></div>; }

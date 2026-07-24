@@ -1,4 +1,6 @@
-import { NavLink } from 'react-router-dom';
+import os
+
+sidebar_content = """import { NavLink } from 'react-router-dom';
 import { 
   LayoutDashboard, 
   TrendingUp, 
@@ -168,3 +170,9 @@ export default function Sidebar() {
     </aside>
   );
 }
+"""
+
+with open("src/components/layout/Sidebar.tsx", "w", encoding="utf-8") as f:
+    f.write(sidebar_content)
+
+print("Sidebar updated successfully.")
