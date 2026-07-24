@@ -169,6 +169,11 @@ async function startServer() {
           hasFullDetails: true
         }
       });
+      fetch(`http://localhost:3000/api/etsy/sync-shop`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ shopId: shopId.toString() })
+      }).catch((err) => console.error("Auto-sync failed:", err));
       res.send(`
         <html>
           <body>
@@ -955,6 +960,57 @@ Return the response in JSON format exactly like this schema:
   });
   apiRouter.get("/auth/etsy/status", (req, res) => {
     res.json({ connected: false });
+  });
+  apiRouter.get("/profile", async (req, res) => {
+    try {
+      let user = await prisma.user.findFirst({
+        include: { shops: true }
+      });
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      if (user.email === "admin@podsypro.com" && user.shops && user.shops.length > 0) {
+        const shop = user.shops[0];
+        if (shop.accessToken) {
+          try {
+            const apiKey = process.env.ETSY_API_KEY;
+            const headers = { "x-api-key": apiKey, "Authorization": `Bearer ${shop.accessToken}` };
+            const shopRes = await fetch(`https://openapi.etsy.com/v3/application/shops/${shop.etsyShopId}`, { headers });
+            if (shopRes.ok) {
+              const shopData = await shopRes.json();
+              if (shopData.user_id) {
+                const userRes = await fetch(`https://openapi.etsy.com/v3/application/users/${shopData.user_id}`, { headers });
+                if (userRes.ok) {
+                  const userData = await userRes.json();
+                  user = await prisma.user.update({
+                    where: { id: user.id },
+                    data: {
+                      email: userData.primary_email || "user@podsypro.com",
+                      name: userData.first_name || userData.login_name || "Podsy User"
+                    },
+                    include: { shops: true }
+                  });
+                }
+              }
+            }
+          } catch (err) {
+            console.error("Failed to sync real user profile from Etsy:", err);
+          }
+        }
+      }
+      res.json(user);
+    } catch (e) {
+      res.status(500).json({ error: "Internal error" });
+    }
+  });
+  apiRouter.get("/debug/db", async (req, res) => {
+    try {
+      const users = await prisma.user.findMany({ include: { shops: true } });
+      const listings = await prisma.listing.findMany();
+      res.json({ users, listings });
+    } catch (e) {
+      res.status(500).json({ error: "Failed to fetch db" });
+    }
   });
   app.use("/api", apiRouter);
   app.get("/auth/callback", (req, res) => {
