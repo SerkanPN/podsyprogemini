@@ -181,6 +181,13 @@ async function startServer() {
         }
       });
 
+      // Automatically trigger sync in the background so listings are immediately fetched
+      fetch(`http://localhost:3000/api/etsy/sync-shop`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ shopId: shopId.toString() })
+      }).catch(err => console.error("Auto-sync failed:", err));
+
       // Redirect back to our app (or send a success HTML page that closes itself)
       res.send(`
         <html>
@@ -1168,6 +1175,16 @@ Return the response in JSON format exactly like this schema:
       res.json(user);
     } catch (e) {
       res.status(500).json({ error: "Internal error" });
+    }
+  });
+
+  apiRouter.get("/debug/db", async (req, res) => {
+    try {
+      const users = await prisma.user.findMany({ include: { shops: true } });
+      const listings = await prisma.listing.findMany();
+      res.json({ users, listings });
+    } catch (e) {
+      res.status(500).json({ error: "Failed to fetch db" });
     }
   });
 
