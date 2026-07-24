@@ -156,16 +156,35 @@ async function startServer() {
         return res.send(`Logged in user does not have a shop. User ID: ${userId || 'unknown'}. Debug info: ${debugInfo}`);
       }
 
-      // Ensure a dummy user exists for relations
-      let user = await prisma.user.findFirst();
-      if (!user) {
-        user = await prisma.user.create({ data: { email: "admin@podsypro.com" }});
+      let userEmail = `user${userId}@podsypro.com`;
+      let userName = "Etsy User";
+
+      try {
+        const userRes = await fetch(`https://openapi.etsy.com/v3/application/users/${userId}`, {
+          headers: { "x-api-key": xApiKey, "Authorization": `Bearer ${data.access_token}` }
+        });
+        if (userRes.ok) {
+          const userData = await userRes.json();
+          userName = userData.first_name || userData.login_name || userName;
+          userEmail = userData.primary_email || userEmail;
+        }
+      } catch (e) {
+        console.error("Failed to fetch user details during callback:", e);
       }
 
-      // Upsert the shop with the tokens
+      // Fetch or create the real user in the database
+      let user = await prisma.user.findFirst({ where: { email: userEmail } });
+      if (!user) {
+        user = await prisma.user.create({ data: { email: userEmail, name: userName } });
+      } else {
+        user = await prisma.user.update({ where: { id: user.id }, data: { name: userName } });
+      }
+
+      // Upsert the shop with the tokens, linking it to the real user
       await prisma.shop.upsert({
         where: { etsyShopId: shopId.toString() },
         update: {
+          userId: user.id,
           accessToken: data.access_token,
           refreshToken: data.refresh_token,
           shopName: shopName,
