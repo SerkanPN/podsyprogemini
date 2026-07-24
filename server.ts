@@ -1184,8 +1184,8 @@ Return the response in JSON format exactly like this schema:
       }
     }));
     
-    app.get('*', (req, res) => {
-      res.sendFile(path.join(distPath, 'app.html'));
+    app.get("*", (req, res) => {
+      res.sendFile(path.join(distPath, "index.html"));
     });
   }
 
