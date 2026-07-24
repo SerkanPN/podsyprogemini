@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+﻿import { useEffect, useState, useMemo } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { ExternalLink, Loader2, ArrowLeft, Heart, Eye, Package, ShieldCheck, TrendingUp, Hash, Bookmark, BookmarkCheck, Sparkles } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
@@ -253,70 +253,38 @@ export default function ListingDetail() {
         </div>
 
         <div className="space-y-6">
-          <div className="p-4 bg-[#0d0d0d] border border-zinc-800 rounded-xl space-y-3 text-xs shadow-sm">
-            <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest block border-b border-zinc-800/50 pb-1.5">Timeline</span>
-            <div className="grid grid-cols-3 gap-4">
-              <div className="space-y-0.5">
-                <span className="text-zinc-500 block">First Created</span>
-                <span className="font-semibold text-zinc-300">{createdDateFormatted}</span>
-              </div>
-              <div className="space-y-0.5">
-                <span className="text-zinc-500 block">Modified</span>
-                <span className="font-semibold text-zinc-300">{modifiedDateFormatted}</span>
-              </div>
-              <div className="space-y-0.5">
-                <span className="text-zinc-500 block">Last Updated</span>
-                <span className="font-semibold text-zinc-300">{updatedDateFormatted}</span>
-              </div>
-            </div>
-          </div>
-
           <div className="bg-[#0d0d0d] border border-zinc-800 rounded-xl p-6 shadow-sm">
             <div className="mb-6">
               <p className="text-sm text-zinc-500 mb-1">Price</p>
               <p className="text-3xl font-bold text-white tracking-tight">{priceFormatted}</p>
             </div>
 
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            <div className="grid grid-cols-2 gap-4 mb-6">
               <div className="bg-zinc-900/50 rounded-lg p-4 border border-zinc-800/50">
                 <div className="flex items-center gap-2 text-emerald-400 mb-1">
                   <Eye className="w-4 h-4" />
-                  <span className="font-semibold text-lg">{views !== undefined ? views.toLocaleString() : 'N/A'}</span>
+                  <span className="font-semibold">{views || 0}</span>
                 </div>
                 <p className="text-[10px] text-zinc-500 uppercase tracking-widest font-bold">Total Views</p>
               </div>
               <div className="bg-zinc-900/50 rounded-lg p-4 border border-zinc-800/50">
-                <div className="flex items-center gap-2 text-emerald-400/70 mb-1">
-                  <TrendingUp className="w-4 h-4" />
-                  <span className="font-semibold text-lg">{estMonthlyViews !== null ? estMonthlyViews.toLocaleString() : 'N/A'}</span>
-                </div>
-                <p className="text-[10px] text-zinc-500 uppercase tracking-widest font-bold">Est. Monthly Views</p>
-              </div>
-              <div className="bg-zinc-900/50 rounded-lg p-4 border border-zinc-800/50">
                 <div className="flex items-center gap-2 text-rose-400 mb-1">
                   <Heart className="w-4 h-4" />
-                  <span className="font-semibold text-lg">{num_favorers !== undefined ? num_favorers.toLocaleString() : 'N/A'}</span>
+                  <span className="font-semibold">{num_favorers || 0}</span>
                 </div>
-                <p className="text-[10px] text-zinc-500 uppercase tracking-widest font-bold">Total Favorites</p>
-              </div>
-              <div className="bg-zinc-900/50 rounded-lg p-4 border border-zinc-800/50">
-                <div className="flex items-center gap-2 text-rose-400/70 mb-1">
-                  <Heart className="w-4 h-4" />
-                  <span className="font-semibold text-lg">{estMonthlyFavorites !== null ? estMonthlyFavorites.toLocaleString() : 'N/A'}</span>
-                </div>
-                <p className="text-[10px] text-zinc-500 uppercase tracking-widest font-bold">Est. Monthly Favs</p>
+                <p className="text-[10px] text-zinc-500 uppercase tracking-widest font-bold">Favorites</p>
               </div>
               <div className="bg-zinc-900/50 rounded-lg p-4 border border-zinc-800/50">
                 <div className="flex items-center gap-2 text-indigo-400 mb-1">
                   <Package className="w-4 h-4" />
-                  <span className="font-semibold text-lg">{quantity || 0}</span>
+                  <span className="font-semibold">{quantity || 0}</span>
                 </div>
                 <p className="text-[10px] text-zinc-500 uppercase tracking-widest font-bold">In Stock</p>
               </div>
               <div className="bg-zinc-900/50 rounded-lg p-4 border border-zinc-800/50">
                 <div className="flex items-center gap-2 text-blue-400 mb-1">
                   <ShieldCheck className="w-4 h-4" />
-                  <span className="font-semibold text-lg">Active</span>
+                  <span className="font-semibold">Active</span>
                 </div>
                 <p className="text-[10px] text-zinc-500 uppercase tracking-widest font-bold">Status</p>
               </div>
@@ -334,7 +302,7 @@ export default function ListingDetail() {
 
             <Link 
               to={`/ai-studio?cloneId=${id}`} 
-              className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-[#F1641E] hover:bg-[#d95a1a] text-white rounded-lg text-sm font-bold uppercase tracking-wider shadow-md transition-colors mb-3"
+              className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-sm font-bold uppercase tracking-wider shadow-md transition-colors mb-3"
             >
               <Sparkles className="w-4 h-4" /> AI Clone
             </Link>
