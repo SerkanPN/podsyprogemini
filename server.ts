@@ -1119,12 +1119,52 @@ Return the response in JSON format exactly like this schema:
 
   apiRouter.get("/profile", async (req, res) => {
     try {
-      const user = await prisma.user.findFirst({
+      let user = await prisma.user.findFirst({
         include: { shops: true }
       });
+      
       if (!user) {
         return res.status(404).json({ error: "User not found" });
       }
+
+      // If user is still dummy data and we have a shop, sync real user data from Etsy
+      if (user.email === "admin@podsypro.com" && user.shops && user.shops.length > 0) {
+        const shop = user.shops[0];
+        if (shop.accessToken) {
+          try {
+            const apiKey = process.env.ETSY_API_KEY;
+            const headers = { "x-api-key": apiKey!, "Authorization": `Bearer ${shop.accessToken}` };
+            
+            // First get the shop to find the user_id
+            const shopRes = await fetch(`https://openapi.etsy.com/v3/application/shops/${shop.etsyShopId}`, { headers });
+            if (shopRes.ok) {
+              const shopData = await shopRes.json();
+              
+              if (shopData.user_id) {
+                // Now get the user profile
+                const userRes = await fetch(`https://openapi.etsy.com/v3/application/users/${shopData.user_id}`, { headers });
+                
+                if (userRes.ok) {
+                  const userData = await userRes.json();
+                  
+                  // Update our database with the real info
+                  user = await prisma.user.update({
+                    where: { id: user.id },
+                    data: {
+                      email: userData.primary_email || "user@podsypro.com",
+                      name: userData.first_name || userData.login_name || "Podsy User"
+                    },
+                    include: { shops: true }
+                  });
+                }
+              }
+            }
+          } catch(err) {
+            console.error("Failed to sync real user profile from Etsy:", err);
+          }
+        }
+      }
+
       res.json(user);
     } catch (e) {
       res.status(500).json({ error: "Internal error" });
