@@ -5,13 +5,35 @@ import { useNavigate, Link } from 'react-router-dom';
 export default function Header() {
   const [query, setQuery] = useState('');
   const navigate = useNavigate();
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
-    return !!localStorage.getItem('etsy_access_token');
-  });
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
 
   useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const res = await fetch('/api/etsy/auth-status');
+        if (res.ok) {
+          const data = await res.json();
+          if (data.isConnected) {
+            setIsAuthenticated(true);
+            return;
+          }
+        }
+      } catch (e) {
+        console.error('Auth check error', e);
+      }
+      
+      if (!!localStorage.getItem('etsy_access_token')) {
+         setIsAuthenticated(true);
+      }
+    };
+
+    checkAuth();
+    window.addEventListener('focus', checkAuth);
+
     const handleStorage = () => {
-      setIsAuthenticated(!!localStorage.getItem('etsy_access_token'));
+      if (!!localStorage.getItem('etsy_access_token')) {
+        setIsAuthenticated(true);
+      }
     };
     window.addEventListener('storage', handleStorage);
     
@@ -24,6 +46,7 @@ export default function Header() {
     window.addEventListener('message', handleMessage);
 
     return () => {
+      window.removeEventListener('focus', checkAuth);
       window.removeEventListener('storage', handleStorage);
       window.removeEventListener('message', handleMessage);
     };
