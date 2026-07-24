@@ -73,7 +73,7 @@ export default function Header() {
             </button>
           ) : (
             <button 
-              onClick={() => alert("Lütfen giriş yapmak için PodsyPro eklentisini kullanın.")}
+              onClick={() => window.open('/api/etsy/auth', '_blank')}
               className="text-sm font-semibold text-zinc-300 hover:text-white hidden sm:block px-3 py-2 rounded-full hover:bg-zinc-800 transition-colors"
             >
               Sign in
