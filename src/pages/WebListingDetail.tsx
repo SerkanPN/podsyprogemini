@@ -125,11 +125,32 @@ export default function ListingDetail() {
     url,
     images,
     shop,
-    tags
+    tags,
+    original_creation_timestamp,
+    creation_timestamp,
+    last_modified_timestamp,
+    updated_timestamp
   } = data;
 
   const image = images?.[0]?.url_570xN || null;
   const priceFormatted = price ? `${price.currency_code} ${(price.amount / price.divisor).toFixed(2)}` : 'N/A';
+
+  // Strictly English date formatting
+  const formatDateEn = (timestamp: number | undefined) => {
+    if (!timestamp) return 'N/A';
+    return new Date(timestamp * 1000).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' });
+  };
+
+  const createdTimestamp = original_creation_timestamp || creation_timestamp;
+  const createdDateFormatted = formatDateEn(createdTimestamp);
+  const modifiedDateFormatted = formatDateEn(last_modified_timestamp);
+  const updatedDateFormatted = formatDateEn(updated_timestamp);
+
+  // Calculate monthly estimates
+  const estMonthlyViews = views !== undefined && createdTimestamp ? 
+    Math.round((views / Math.max(1, (Date.now() / 1000 - createdTimestamp) / (60 * 60 * 24))) * 30) : null;
+  const estMonthlyFavorites = num_favorers !== undefined && createdTimestamp ? 
+    Math.round((num_favorers / Math.max(1, (Date.now() / 1000 - createdTimestamp) / (60 * 60 * 24))) * 30) : null;
 
   return (
     <div className="space-y-6">
