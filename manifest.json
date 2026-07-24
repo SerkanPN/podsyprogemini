@@ -14,13 +14,13 @@
     "*://*.etsy.com/*"
   ],
   "background": {
-    "service_worker": "src/background.ts",
+    "service_worker": "src/extension/background.ts",
     "type": "module"
   },
   "content_scripts": [
     {
       "matches": ["*://*.etsy.com/*", "*://localhost/*", "*://*.podsy.pro/*"],
-      "js": ["src/content.ts"]
+      "js": ["src/extension/content.ts"]
     }
   ],
   "side_panel": {

@@ -7,7 +7,7 @@ import Layout from './components/layout/Layout';
 import Dashboard from './pages/Dashboard';
 import Listings from './pages/Listings';
 import KeywordAnalysis from './pages/KeywordAnalysis';
-import ListingDetail from './pages/WebListingDetail';
+import ListingDetail from './pages/ListingDetail';
 import ShopDetail from './pages/ShopDetail';
 import AIStudio from './pages/AIStudio';
 import Reports from './pages/Reports';

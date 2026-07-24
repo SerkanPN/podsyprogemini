@@ -1,0 +1,54 @@
+﻿2026-07-24 18:36:15 +0700 6439b19 fix: revert to the correct UI layout
+2026-07-24 18:29:45 +0700 48960e9 feat: rebuild WebListingDetail as dark Etsy clone
+2026-07-24 17:56:24 +0700 5243733 fix: include compiled build assets for dark theme
+2026-07-24 17:53:05 +0700 25ed537 fix: restore dark theme layout of Etsy clone
+2026-07-24 17:14:24 +0700 4329a09 feat: rebuild WebListingDetail as exact Etsy clone
+2026-07-24 16:55:19 +0700 0919c23 fix: resolve ReferenceError for timeline variables
+2026-07-24 16:46:23 +0700 1bde74e fix: restore full web layout and combine with new extension features
+2026-07-24 16:10:08 +0700 0700068 fix: restore original Web App Listing Detail UI
+2026-07-24 15:49:29 +0700 d6a4d70 fix: update header auth state dynamically
+2026-07-24 15:32:35 +0700 7de40ed feat: redirect signin exactly like extension
+2026-07-24 15:08:52 +0700 87a5a9a fix: add missing useEffect import in Header
+2026-07-24 14:54:01 +0700 5cb91c0 fix: sync etsy login securely using postMessage
+2026-07-24 14:41:36 +0700 14b6a38 revert: return to working state with app.html
+2026-07-24 14:33:05 +0700 747d809 fix: rename app.html back to index.html for cPanel compatibility
+2026-07-24 05:33:06 +0700 9b1e136 fix: revert broken header login, rely on original module
+2026-07-24 05:24:52 +0700 b1373e1 chore: track frontend dist folder for easy cpanel deployment
+2026-07-24 05:17:56 +0700 248d261 revert: restore all files to exactly as they were before cleanup
+2026-07-24 05:16:06 +0700 e628dd4 fix: restore scheduler.ts and cron-scheduler folder
+2026-07-24 05:13:23 +0700 440f819 chore: clean up temp scripts and garbage files, re-track dist-ext for extension deployment
+2026-07-24 05:08:11 +0700 4580f4d chore: remove build artifacts from git tracking
+2026-07-24 05:03:41 +0700 807d18d feat: sync extension auth with web app, fix header signin button
+2026-07-24 04:47:03 +0700 241ef85 fix: pagination logic for full sales extraction, translate UI to English, add listing links
+2026-07-24 04:33:11 +0700 ba36629 fix: remove undefined listings variable causing black screen in ShopDetail
+2026-07-24 02:14:31 +0700 5124dcf fix: use VITE_API_URL environment variable for API requests in extension instead of hardcoded localhost
+2026-07-24 02:04:05 +0700 612feaa feat: implement extension shop DOM scraping and background sales pagination
+2026-07-23 23:53:05 +0700 d007cf5 fix: suppress extension context invalidated errors
+2026-07-23 23:38:43 +0700 5152b73 fix: strictly follow requested URL conditions
+2026-07-23 23:23:14 +0700 10bd308 fix: correctly handle direct shop URLs without /shop prefix
+2026-07-23 23:19:41 +0700 0050ca8 fix: translate dashboard UI to English
+2026-07-23 23:15:35 +0700 c06bb10 style: switch dashboard UI to English as requested
+2026-07-23 22:57:39 +0700 6e1d1d7 feat: add seller dashboard UI mode
+2026-07-23 20:33:48 +0700 eb2b811 fix: restore setInterval for price polling
+2026-07-23 20:30:05 +0700 609888f fix: indestructible regex price parsing, and removed broken double escapes
+2026-07-23 20:15:15 +0700 ddcf807 fix: radically improve exact price scraping to avoid original price parsing errors
+2026-07-23 19:04:19 +0700 0a194c8 fix: radically simplify side panel enablement to prevent tab sync errors
+2026-07-23 17:58:32 +0700 20f4e48 fix: resolve No active side panel error by adding path
+2026-07-23 04:50:46 +0700 383959a build: compile latest extension locally to fix user environment issues
+2026-07-23 04:35:39 +0700 36c9fee feat: robust sidepanel per-tab sync and interval-based price scraping
+2026-07-23 04:30:00 +0700 5ead175 fix: reset scraped price when listing id changes and enforce id match
+2026-07-23 04:20:57 +0700 9d95b0a fix: auto update sidepanel on SPA navigation and use exact price CSS selector
+2026-07-23 04:10:22 +0700 29e74ad fix: make memory router remount on route change and use generic css selector for price
+2026-07-23 03:58:32 +0700 2fb681a feat: scrape live price from DOM and observe variation changes
+2026-07-23 03:48:07 +0700 310b3fa fix: pass keystring:shared_secret in x-api-key header for Etsy API
+2026-07-23 03:44:15 +0700 d9dc435 fix: output exact etsy api response body for debugging
+2026-07-23 03:40:27 +0700 5b0aad6 fix: robust shop id extraction from Etsy API v3 shops endpoint
+2026-07-23 03:33:08 +0700 e68743b fix: fetch shop_id correctly for Etsy API v3 callback
+2026-07-23 03:28:13 +0700 5c70e28 fix: use ETSY_CALLBACK_URL env var instead of hardcoded localhost
+2026-07-23 02:53:07 +0700 b715962 fix: express wildcard route syntax
+2026-07-23 02:48:55 +0700 4e20728 fix: rename index.html to app.html to prevent cPanel Apache interception
+2026-07-23 02:41:08 +0700 1fed3ea fix: force production mode based on directory to bypass cPanel NODE_ENV bugs
+2026-07-23 02:37:24 +0700 4be1987 fix: enforce JS MIME types and path resolution for cPanel Passenger
+2026-07-23 02:29:43 +0700 497b5c2 fix: move server build output to separate dist-server folder to prevent code exposure
+2026-07-23 02:04:22 +0700 4040243 chore: set production domain to app.podsy.pro
+2026-07-23 01:02:40 +0700 4673582 feat: complete etsy deep sync, socket io, and auth gate
