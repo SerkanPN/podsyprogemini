@@ -1117,6 +1117,20 @@ Return the response in JSON format exactly like this schema:
     res.json({ connected: false });
   });
 
+  apiRouter.get("/profile", async (req, res) => {
+    try {
+      const user = await prisma.user.findFirst({
+        include: { shops: true }
+      });
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      res.json(user);
+    } catch (e) {
+      res.status(500).json({ error: "Internal error" });
+    }
+  });
+
   app.use("/api", apiRouter);
 
   app.get('/auth/callback', (req, res) => {

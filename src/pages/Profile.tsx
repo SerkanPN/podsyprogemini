@@ -1,7 +1,55 @@
-import { User, Mail, Phone, Store, Crown, ShieldCheck, Camera, Edit2 } from 'lucide-react';
+import { User, Mail, Phone, Store, Crown, ShieldCheck, Camera, Edit2, Loader2, AlertCircle } from 'lucide-react';
 import { cn } from '../lib/utils';
+import { useState, useEffect } from 'react';
 
 export default function Profile() {
+  const [profile, setProfile] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    // In production, this uses the same domain. In dev, Vite proxies it.
+    // If not proxied, we might need the full URL, but standard is /api
+    fetch('/api/profile')
+      .then(res => {
+        if (!res.ok) throw new Error('Failed to fetch');
+        return res.json();
+      })
+      .then(data => {
+        if (data.error) throw new Error(data.error);
+        setProfile(data);
+        setLoading(false);
+      })
+      .catch(err => {
+        console.error(err);
+        setError('Failed to load profile data. Make sure backend is running and connected.');
+        setLoading(false);
+      });
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-96">
+        <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
+      </div>
+    );
+  }
+
+  if (error || !profile) {
+    return (
+      <div className="p-6 max-w-5xl mx-auto space-y-6 text-zinc-100">
+        <div className="bg-red-500/10 border border-red-500/50 p-4 rounded-lg flex items-center gap-3 text-red-400">
+          <AlertCircle className="w-5 h-5" />
+          <p>{error || 'Profile not found.'}</p>
+        </div>
+      </div>
+    );
+  }
+
+  const shop = profile.shops && profile.shops.length > 0 ? profile.shops[0] : null;
+  const isConnected = !!shop;
+  const userName = profile.name || profile.email.split('@')[0];
+
   return (
     <div className="p-6 max-w-5xl mx-auto space-y-6 text-zinc-100">
       
@@ -31,8 +79,8 @@ export default function Profile() {
 
           {/* Title Info */}
           <div className="text-center sm:text-left flex-1 mb-2">
-            <h2 className="text-xl font-bold text-white">Podsy User</h2>
-            <p className="text-sm text-zinc-400">user@podsypro.com</p>
+            <h2 className="text-xl font-bold text-white capitalize">{userName}</h2>
+            <p className="text-sm text-zinc-400">{profile.email}</p>
           </div>
 
           {/* Status Badge */}
@@ -59,7 +107,7 @@ export default function Profile() {
               </div>
               <div>
                 <p className="text-xs text-zinc-500 mb-1">Full Name</p>
-                <p className="text-sm font-medium text-zinc-200">Podsy User</p>
+                <p className="text-sm font-medium text-zinc-200 capitalize">{userName}</p>
               </div>
             </div>
 
@@ -69,7 +117,7 @@ export default function Profile() {
               </div>
               <div>
                 <p className="text-xs text-zinc-500 mb-1">Email Address</p>
-                <p className="text-sm font-medium text-zinc-200">user@podsypro.com</p>
+                <p className="text-sm font-medium text-zinc-200">{profile.email}</p>
               </div>
             </div>
 
@@ -78,8 +126,8 @@ export default function Profile() {
                 <Phone className="w-5 h-5" />
               </div>
               <div>
-                <p className="text-xs text-zinc-500 mb-1">Phone Number</p>
-                <p className="text-sm font-medium text-zinc-200">+1 (555) 123-4567</p>
+                <p className="text-xs text-zinc-500 mb-1">Account Created</p>
+                <p className="text-sm font-medium text-zinc-200">{new Date(profile.createdAt).toLocaleDateString()}</p>
               </div>
             </div>
           </div>
@@ -89,27 +137,45 @@ export default function Profile() {
         <div className="bg-zinc-900 rounded-xl border border-zinc-800 p-6 space-y-6">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-semibold text-zinc-400 uppercase tracking-wider">Shop Integration</h3>
-            <span className="flex items-center gap-1 text-xs font-medium text-emerald-400 bg-emerald-400/10 px-2 py-1 rounded-md">
-              <ShieldCheck className="w-3 h-3" /> Connected
-            </span>
+            {isConnected ? (
+              <span className="flex items-center gap-1 text-xs font-medium text-emerald-400 bg-emerald-400/10 px-2 py-1 rounded-md border border-emerald-400/20">
+                <ShieldCheck className="w-3 h-3" /> Connected
+              </span>
+            ) : (
+              <span className="flex items-center gap-1 text-xs font-medium text-zinc-400 bg-zinc-800 px-2 py-1 rounded-md border border-zinc-700">
+                Not Connected
+              </span>
+            )}
           </div>
           
           <div className="space-y-4">
-            <div className="flex items-start gap-4">
-              <div className="p-2 bg-zinc-800/50 rounded-lg text-orange-400">
-                <Store className="w-5 h-5" />
-              </div>
-              <div>
-                <p className="text-xs text-zinc-500 mb-1">Connected Shop</p>
-                <p className="text-sm font-medium text-zinc-200">PodsyPro Designs</p>
-              </div>
-            </div>
+            {isConnected ? (
+              <>
+                <div className="flex items-start gap-4">
+                  <div className="p-2 bg-zinc-800/50 rounded-lg text-orange-400">
+                    <Store className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <p className="text-xs text-zinc-500 mb-1">Connected Shop</p>
+                    <p className="text-sm font-medium text-zinc-200">{shop.shopName}</p>
+                  </div>
+                </div>
 
-            <div className="p-4 rounded-lg bg-indigo-500/5 border border-indigo-500/20">
-              <p className="text-xs text-indigo-300 leading-relaxed">
-                Your Etsy shop is successfully connected. We are actively syncing your listings and analyzing your market performance.
-              </p>
-            </div>
+                <div className="p-4 rounded-lg bg-indigo-500/5 border border-indigo-500/20">
+                  <p className="text-xs text-indigo-300 leading-relaxed">
+                    Your Etsy shop <strong>{shop.shopName}</strong> is successfully connected. We are actively syncing your listings (Total Sales: {shop.totalSales}).
+                  </p>
+                </div>
+              </>
+            ) : (
+              <div className="text-center py-4">
+                <Store className="w-8 h-8 text-zinc-600 mx-auto mb-3" />
+                <p className="text-sm text-zinc-400 mb-4">No Etsy shop connected.</p>
+                <button className="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-md text-sm font-medium transition-colors">
+                  Connect Etsy Shop
+                </button>
+              </div>
+            )}
           </div>
         </div>
 
