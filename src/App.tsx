@@ -21,6 +21,8 @@ import IdeaStudio from './pages/IdeaStudio';
 import CloneStudio from './pages/CloneStudio';
 import ReportStudio from './pages/ReportStudio';
 
+import PaymentPending from './pages/PaymentPending';
+
 export default function App() {
   const { connect, disconnect } = useSocketStore();
   const theme = useAppStore(state => state.theme);
@@ -41,6 +43,8 @@ export default function App() {
   return (
     <BrowserRouter>
       <Routes>
+        <Route path="/payment-pending" element={<PaymentPending />} />
+        
         <Route path="/" element={<Layout />}>
           <Route index element={<Navigate to="/dashboard" replace />} />
           <Route path="dashboard" element={<Dashboard />} />
