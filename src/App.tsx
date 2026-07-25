@@ -4,6 +4,7 @@ import { useSocketStore } from './stores/useSocketStore';
 import { useAppStore } from './stores/useAppStore';
 
 import Layout from './components/layout/Layout';
+import PaymentPending from './pages/PaymentPending';
 import Dashboard from './pages/Dashboard';
 import Profile from './pages/Profile';
 import MyFavs from './pages/MyFavs';
@@ -20,8 +21,6 @@ import MockupStudio from './pages/MockupStudio';
 import IdeaStudio from './pages/IdeaStudio';
 import CloneStudio from './pages/CloneStudio';
 import ReportStudio from './pages/ReportStudio';
-
-import PaymentPending from './pages/PaymentPending';
 
 export default function App() {
   const { connect, disconnect } = useSocketStore();
