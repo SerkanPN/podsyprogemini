@@ -22,7 +22,7 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
 ));
 
 // server.ts
-var import_express = __toESM(require("express"), 1);
+var import_express3 = __toESM(require("express"), 1);
 var import_path = __toESM(require("path"), 1);
 var import_vite = require("vite");
 var import_http = __toESM(require("http"), 1);
@@ -43,6 +43,207 @@ var adapter = new import_adapter_pg.PrismaPg(pool);
 var prisma = new import_client.PrismaClient({ adapter });
 
 // server.ts
+var import_cookie_parser = __toESM(require("cookie-parser"), 1);
+
+// src/lib/session.ts
+var import_jsonwebtoken = __toESM(require("jsonwebtoken"), 1);
+var SESSION_SECRET = process.env.PODSY_SESSION_SECRET;
+if (!SESSION_SECRET) {
+  throw new Error(
+    "PODSY_SESSION_SECRET tan\u0131ml\u0131 de\u011Fil (.env). Rastgele, uzun bir secret \xFCretip ekleyin."
+  );
+}
+var SESSION_TTL = "30d";
+function issueSession(payload) {
+  return import_jsonwebtoken.default.sign(payload, SESSION_SECRET, { expiresIn: SESSION_TTL });
+}
+function verifySession(token) {
+  try {
+    return import_jsonwebtoken.default.verify(token, SESSION_SECRET);
+  } catch {
+    return null;
+  }
+}
+
+// src/routes/payment-pending.ts
+var import_express = require("express");
+var import_client3 = require("@prisma/client");
+
+// src/middleware/subscription.ts
+var import_client2 = require("@prisma/client");
+var prisma2 = new import_client2.PrismaClient();
+async function requireEtsyShop(req, res, next) {
+  const token = req.cookies?.podsy_session;
+  if (!token) {
+    return res.status(401).json({
+      error: "NO_SESSION",
+      message: "Etsy ma\u011Fazan\u0131z\u0131 ba\u011Flaman\u0131z gerekiyor.",
+      redirectTo: "/connect-etsy"
+    });
+  }
+  const session = verifySession(token);
+  if (!session) {
+    return res.status(401).json({
+      error: "INVALID_SESSION",
+      redirectTo: "/connect-etsy"
+    });
+  }
+  const shop = await prisma2.shops.findUnique({
+    where: { id: session.shopId },
+    select: {
+      id: true,
+      subscription_tier: true,
+      subscription_expires_at: true
+    }
+  });
+  if (!shop) {
+    return res.status(401).json({ error: "SHOP_NOT_FOUND", redirectTo: "/connect-etsy" });
+  }
+  req.podsySession = session;
+  req.podsyShop = {
+    id: shop.id,
+    subscriptionTier: shop.subscription_tier,
+    subscriptionExpiresAt: shop.subscription_expires_at
+  };
+  next();
+}
+
+// src/routes/payment-pending.ts
+var prisma3 = new import_client3.PrismaClient();
+var router = (0, import_express.Router)();
+router.use(requireEtsyShop);
+router.get("/status", async (req, res) => {
+  const shopId = req.podsyShop.id;
+  const latestRequest = await prisma3.subscription_requests.findFirst({
+    where: { shop_id: shopId },
+    orderBy: { requested_at: "desc" }
+  });
+  res.json({
+    subscriptionTier: req.podsyShop.subscriptionTier,
+    subscriptionExpiresAt: req.podsyShop.subscriptionExpiresAt,
+    latestRequest,
+    paymentInstructions: {
+      email: "sales@podsy.pro",
+      note: "\xD6deme a\xE7\u0131klamas\u0131na veya mailinize l\xFCtfen Etsy ma\u011Faza ad\u0131n\u0131z\u0131 yaz\u0131n."
+    }
+  });
+});
+router.post("/request", async (req, res) => {
+  const shopId = req.podsyShop.id;
+  const { planRequested, amount, currency } = req.body;
+  const session = req.podsySession;
+  const user = await prisma3.users.findUniqueOrThrow({ where: { id: session.userId } });
+  const request = await prisma3.subscription_requests.create({
+    data: {
+      shop_id: shopId,
+      user_email: user.email ?? "unknown",
+      plan_requested: planRequested,
+      amount,
+      currency,
+      status: "PENDING"
+    }
+  });
+  res.status(201).json({ success: true, request });
+});
+var payment_pending_default = router;
+
+// src/routes/admin-subscriptions.ts
+var import_express2 = require("express");
+var import_client4 = require("@prisma/client");
+
+// src/middleware/admin-auth.ts
+function requireAdminAuth(req, res, next) {
+  const adminSecret = req.headers["x-admin-secret"] || req.cookies?.admin_secret;
+  if (!process.env.ADMIN_SECRET) {
+    console.error("ADMIN_SECRET is not set in environment variables!");
+    return res.status(500).json({ error: "Server misconfigured" });
+  }
+  if (adminSecret !== process.env.ADMIN_SECRET) {
+    return res.status(401).json({ error: "Unauthorized. Invalid admin secret." });
+  }
+  req.podsyAdmin = { email: "admin@podsy.pro" };
+  next();
+}
+
+// src/routes/admin-subscriptions.ts
+var prisma4 = new import_client4.PrismaClient();
+var router2 = (0, import_express2.Router)();
+router2.use(requireAdminAuth);
+router2.get("/pending", async (_req, res) => {
+  const pending = await prisma4.subscription_requests.findMany({
+    where: { status: "PENDING" },
+    include: {
+      shops: {
+        select: { id: true, shop_name: true, etsy_shop_id: true }
+      }
+    },
+    orderBy: { requested_at: "asc" }
+  });
+  res.json({ requests: pending });
+});
+router2.get("/shops/search", async (req, res) => {
+  const q = String(req.query.q ?? "");
+  if (q.length < 2) {
+    return res.status(400).json({ error: "QUERY_TOO_SHORT" });
+  }
+  const shops = await prisma4.shops.findMany({
+    where: { shop_name: { contains: q, mode: "insensitive" } },
+    select: {
+      id: true,
+      shop_name: true,
+      etsy_shop_id: true,
+      subscription_tier: true,
+      subscription_expires_at: true
+    },
+    take: 20
+  });
+  res.json({ shops });
+});
+router2.post("/approve", async (req, res) => {
+  const body = req.body;
+  if (!body.shopId || !body.plan || !body.durationDays) {
+    return res.status(400).json({ error: "MISSING_FIELDS" });
+  }
+  const expiresAt = new Date(Date.now() + body.durationDays * 24 * 60 * 60 * 1e3);
+  const [updatedShop] = await prisma4.$transaction([
+    prisma4.shops.update({
+      where: { id: body.shopId },
+      data: {
+        subscription_tier: body.plan,
+        subscription_expires_at: expiresAt,
+        subscription_source: body.source
+      }
+    }),
+    ...body.subscriptionRequestId ? [
+      prisma4.subscription_requests.update({
+        where: { id: body.subscriptionRequestId },
+        data: {
+          status: "APPROVED",
+          admin_note: body.adminNote,
+          approved_by: req.podsyAdmin?.email,
+          approved_at: /* @__PURE__ */ new Date()
+        }
+      })
+    ] : []
+  ]);
+  res.json({ success: true, shop: updatedShop });
+});
+router2.post("/reject", async (req, res) => {
+  const { subscriptionRequestId, adminNote } = req.body;
+  const updated = await prisma4.subscription_requests.update({
+    where: { id: subscriptionRequestId },
+    data: {
+      status: "REJECTED",
+      admin_note: adminNote,
+      approved_by: req.podsyAdmin?.email,
+      approved_at: /* @__PURE__ */ new Date()
+    }
+  });
+  res.json({ success: true, request: updated });
+});
+var admin_subscriptions_default = router2;
+
+// server.ts
 process.env.GEMINI_API_KEY = "AIzaSyC4V6fCSqUh6HtAFCNiMSocJqS4rsAkFBk";
 import_dotenv2.default.config();
 var ASSETS_FILE = import_path.default.join(process.cwd(), "assets.json");
@@ -50,7 +251,7 @@ if (!import_fs.default.existsSync(ASSETS_FILE)) {
   import_fs.default.writeFileSync(ASSETS_FILE, JSON.stringify([]));
 }
 async function startServer() {
-  const app = (0, import_express.default)();
+  const app = (0, import_express3.default)();
   const server = import_http.default.createServer(app);
   const io = new import_socket.Server(server, {
     cors: { origin: "*" }
@@ -66,7 +267,10 @@ async function startServer() {
       next();
     }
   });
-  app.use(import_express.default.json({ limit: "10mb" }));
+  app.use(import_express3.default.json({ limit: "10mb" }));
+  app.use((0, import_cookie_parser.default)());
+  app.use("/api/payment-pending", payment_pending_default);
+  app.use("/api/admin/subscriptions", admin_subscriptions_default);
   app.get("/api/pod-assets", async (req, res) => {
     try {
       const data = await import_promises.default.readFile(ASSETS_FILE, "utf-8");
@@ -82,7 +286,15 @@ async function startServer() {
       console.log("Client disconnected", socket.id);
     });
   });
-  const apiRouter = import_express.default.Router();
+  const apiRouter = import_express3.default.Router();
+  apiRouter.get("/admin/system-status", async (req, res) => {
+    try {
+      const count = await prisma.shops.count({ where: { access_token: { not: null } } });
+      res.json({ etsyConnectedShops: count, status: "OK" });
+    } catch (e) {
+      res.status(500).json({ error: "DB_ERROR" });
+    }
+  });
   const base64URLEncode = (buffer) => {
     return buffer.toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
   };
@@ -148,27 +360,49 @@ async function startServer() {
       if (!shopId) {
         return res.send(`Logged in user does not have a shop. User ID: ${userId || "unknown"}. Debug info: ${debugInfo}`);
       }
-      let user = await prisma.user.findFirst();
-      if (!user) {
-        user = await prisma.user.create({ data: { email: "admin@podsypro.com" } });
+      let userEmail = `user${userId}@podsypro.com`;
+      let userName = "Etsy User";
+      try {
+        const userRes = await fetch(`https://openapi.etsy.com/v3/application/users/${userId}`, {
+          headers: { "x-api-key": xApiKey, "Authorization": `Bearer ${data.access_token}` }
+        });
+        if (userRes.ok) {
+          const userData = await userRes.json();
+          userName = userData.first_name || userData.login_name || userName;
+          userEmail = userData.primary_email || userEmail;
+        }
+      } catch (e) {
+        console.error("Failed to fetch user details during callback:", e);
       }
-      await prisma.shop.upsert({
-        where: { etsyShopId: shopId.toString() },
+      let user = await prisma.users.findFirst({ where: { etsy_user_id: userId } });
+      if (!user) {
+        user = await prisma.users.create({ data: { id: import_crypto.default.randomUUID(), etsy_user_id: userId, email: userEmail, name: userName } });
+      } else {
+        user = await prisma.users.update({ where: { id: user.id }, data: { email: userEmail, name: userName } });
+      }
+      const dbShop = await prisma.shops.upsert({
+        where: { etsy_shop_id: BigInt(shopId) },
         update: {
-          accessToken: data.access_token,
-          refreshToken: data.refresh_token,
-          shopName,
-          hasFullDetails: true
+          shop_name: shopName,
+          access_token: data.access_token,
+          refresh_token: data.refresh_token
         },
         create: {
-          userId: user.id,
-          etsyShopId: shopId.toString(),
-          shopName,
-          accessToken: data.access_token,
-          refreshToken: data.refresh_token,
-          hasFullDetails: true
+          id: import_crypto.default.randomUUID(),
+          user_id: user.id,
+          etsy_shop_id: BigInt(shopId),
+          etsy_user_id: userId,
+          shop_name: shopName,
+          access_token: data.access_token,
+          refresh_token: data.refresh_token
         }
       });
+      const podsySession = issueSession({
+        userId: user.id,
+        shopId: dbShop.id,
+        etsyUserId: userId
+      });
+      res.cookie("podsy_session", podsySession, { httpOnly: true, secure: process.env.NODE_ENV === "production" });
       fetch(`http://localhost:3000/api/etsy/sync-shop`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -195,95 +429,79 @@ async function startServer() {
     const { shopId } = req.body;
     if (!shopId) return res.status(400).json({ error: "Missing shopId" });
     try {
-      const shop = await prisma.shop.findFirst({ where: { etsyShopId: shopId } });
-      if (!shop || !shop.accessToken) {
+      const shop = await prisma.shops.findFirst({ where: { etsy_shop_id: BigInt(shopId) } });
+      if (!shop || !shop.access_token) {
         return res.status(404).json({ error: "Shop not found or not connected" });
       }
       const apiKey = process.env.ETSY_API_KEY;
       if (!apiKey) return res.status(500).json({ error: "ETSY_API_KEY missing" });
-      const headers = { "x-api-key": apiKey, "Authorization": `Bearer ${shop.accessToken}` };
-      const shopRes = await fetch(`https://openapi.etsy.com/v3/application/shops/${shop.etsyShopId}`, { headers });
+      const headers = { "x-api-key": apiKey, "Authorization": `Bearer ${shop.access_token}` };
+      const shopRes = await fetch(`https://openapi.etsy.com/v3/application/shops/${shop.etsy_shop_id}`, { headers });
       if (shopRes.ok) {
         const shopData = await shopRes.json();
         const totalSales = shopData.transaction_sold_count || 0;
-        await prisma.shop.update({
+        const reviewCount = shopData.review_count || 0;
+        const activeListings = shopData.listing_active_count || 0;
+        await prisma.shops.update({
           where: { id: shop.id },
-          data: { totalSales, rawJson: JSON.stringify(shopData) }
+          data: {
+            transaction_sold_count: totalSales,
+            review_count: reviewCount,
+            listing_active_count: activeListings,
+            last_synced_at: /* @__PURE__ */ new Date()
+          }
         });
-        await prisma.shopSnapshot.create({
-          data: { shopId: shop.id, totalSales }
-        });
-      }
-      const listingsRes = await fetch(`https://openapi.etsy.com/v3/application/shops/${shop.etsyShopId}/listings/active?limit=100`, { headers });
-      if (listingsRes.ok) {
-        const listingsData = await listingsRes.json();
-        for (const item of listingsData.results) {
-          const price = item.price?.amount ? item.price.amount / item.price.divisor : 0;
-          await prisma.listing.upsert({
-            where: { etsyId: item.listing_id.toString() },
+        try {
+          await prisma.competitor_snapshots.upsert({
+            where: {
+              shop_id_snapshot_date: {
+                shop_id: shop.id,
+                snapshot_date: new Date((/* @__PURE__ */ new Date()).toISOString().split("T")[0])
+              }
+            },
             update: {
-              title: item.title,
-              views: item.views,
-              favorites: item.num_favorers,
-              price,
-              rawJson: JSON.stringify(item)
+              transaction_sold_count: totalSales,
+              review_count: reviewCount,
+              listing_active_count: activeListings
             },
             create: {
-              shopId: shop.id,
-              etsyId: item.listing_id.toString(),
-              title: item.title,
-              views: item.views,
-              favorites: item.num_favorers,
-              price,
-              rawJson: JSON.stringify(item)
+              id: import_crypto.default.randomUUID(),
+              shop_id: shop.id,
+              snapshot_date: new Date((/* @__PURE__ */ new Date()).toISOString().split("T")[0]),
+              transaction_sold_count: totalSales,
+              review_count: reviewCount,
+              listing_active_count: activeListings
             }
           });
+        } catch (e) {
+          console.error("Error creating shop snapshot", e);
         }
       }
-      const receiptsRes = await fetch(`https://openapi.etsy.com/v3/application/shops/${shop.etsyShopId}/receipts?limit=50`, { headers });
-      if (receiptsRes.ok) {
-        const receiptsData = await receiptsRes.json();
-        for (const receipt of receiptsData.results) {
-          const rId = receipt.receipt_id.toString();
-          const rDb = await prisma.receipt.upsert({
-            where: { receiptId: rId },
+      const listingsRes = await fetch(`https://openapi.etsy.com/v3/application/shops/${shop.etsy_shop_id}/listings/active?limit=100`, { headers });
+      if (listingsRes.ok) {
+        const listingsData = await listingsRes.json();
+        const results = listingsData.results || [];
+        for (const item of results) {
+          await prisma.listings.upsert({
+            where: { etsy_listing_id: BigInt(item.listing_id) },
             update: {
-              status: receipt.status,
-              rawJson: JSON.stringify(receipt)
+              title: item.title,
+              state: item.state,
+              price_amount: item.price ? item.price.amount / item.price.divisor : 0,
+              price_currency: item.price ? item.price.currency_code : "USD",
+              last_synced_at: /* @__PURE__ */ new Date()
             },
             create: {
-              shopId: shop.id,
-              receiptId: rId,
-              buyerEmail: receipt.buyer_email,
-              buyerUserId: receipt.buyer_user_id?.toString(),
-              creationTsz: receipt.creation_tsz,
-              grandtotal: receipt.grandtotal?.amount ? receipt.grandtotal.amount / receipt.grandtotal.divisor : 0,
-              subtotal: receipt.subtotal?.amount ? receipt.subtotal.amount / receipt.subtotal.divisor : 0,
-              status: receipt.status,
-              rawJson: JSON.stringify(receipt)
+              id: import_crypto.default.randomUUID(),
+              etsy_listing_id: BigInt(item.listing_id),
+              shop_id: shop.id,
+              title: item.title,
+              state: item.state,
+              price_amount: item.price ? item.price.amount / item.price.divisor : 0,
+              price_currency: item.price ? item.price.currency_code : "USD",
+              last_synced_at: /* @__PURE__ */ new Date()
             }
           });
-          const transactionsRes = await fetch(`https://openapi.etsy.com/v3/application/shops/${shop.etsyShopId}/receipts/${rId}/transactions`, { headers });
-          if (transactionsRes.ok) {
-            const txData = await transactionsRes.json();
-            for (const tx of txData.results) {
-              await prisma.transaction.upsert({
-                where: { transactionId: tx.transaction_id.toString() },
-                update: { rawJson: JSON.stringify(tx) },
-                create: {
-                  receiptId: rDb.id,
-                  shopId: shop.id,
-                  transactionId: tx.transaction_id.toString(),
-                  title: tx.title,
-                  quantity: tx.quantity,
-                  price: tx.price?.amount ? tx.price.amount / tx.price.divisor : 0,
-                  listingId: tx.listing_id?.toString(),
-                  productId: tx.product_id?.toString(),
-                  rawJson: JSON.stringify(tx)
-                }
-              });
-            }
-          }
         }
       }
       return res.json({ success: true, message: "Sync complete" });
@@ -293,7 +511,7 @@ async function startServer() {
     }
   });
   apiRouter.get("/etsy/auth-status", async (req, res) => {
-    const count = await prisma.shop.count({ where: { accessToken: { not: null } } });
+    const count = await prisma.shops.count({ where: { access_token: { not: null } } });
     res.json({ isConnected: count > 0 });
   });
   const searchCache = /* @__PURE__ */ new Map();
@@ -757,45 +975,36 @@ Return the response in JSON format exactly like this schema:
           try {
             let dbShopId = null;
             if (data.shop) {
-              const s = await prisma.shop.upsert({
-                where: { etsyShopId: data.shop.shop_id.toString() },
-                update: { shopName: data.shop.shop_name, rawJson: JSON.stringify(data.shop) },
+              const s = await prisma.shops.upsert({
+                where: { etsy_shop_id: BigInt(data.shop.shop_id) },
+                update: { shop_name: data.shop.shop_name },
                 create: {
-                  userId: (await prisma.user.findFirst())?.id || "",
-                  etsyShopId: data.shop.shop_id.toString(),
-                  shopName: data.shop.shop_name,
-                  rawJson: JSON.stringify(data.shop)
+                  id: import_crypto.default.randomUUID(),
+                  user_id: (await prisma.users.findFirst())?.id || "unknown",
+                  etsy_shop_id: BigInt(data.shop.shop_id),
+                  shop_name: data.shop.shop_name
                 }
               });
               dbShopId = s.id;
             }
             if (dbShopId) {
               const price = data.price?.amount ? data.price.amount / data.price.divisor : 0;
-              const listing = await prisma.listing.upsert({
-                where: { etsyId: data.listing_id.toString() },
+              await prisma.listings.upsert({
+                where: { etsy_listing_id: BigInt(data.listing_id) },
                 update: {
                   title: data.title,
-                  views: data.views,
-                  favorites: data.num_favorers,
-                  price,
-                  rawJson: JSON.stringify(data)
+                  price_amount: price,
+                  price_currency: data.price?.currency_code || "USD",
+                  state: data.state
                 },
                 create: {
-                  shopId: dbShopId,
-                  etsyId: data.listing_id.toString(),
+                  id: import_crypto.default.randomUUID(),
+                  shop_id: dbShopId,
+                  etsy_listing_id: BigInt(data.listing_id),
                   title: data.title,
-                  views: data.views,
-                  favorites: data.num_favorers,
-                  price,
-                  rawJson: JSON.stringify(data)
-                }
-              });
-              await prisma.listingSnapshot.create({
-                data: {
-                  listingId: listing.id,
-                  views: data.views,
-                  favorites: data.num_favorers,
-                  price
+                  price_amount: price,
+                  price_currency: data.price?.currency_code || "USD",
+                  state: data.state
                 }
               });
             }
@@ -895,10 +1104,44 @@ Return the response in JSON format exactly like this schema:
   });
   apiRouter.post("/etsy/sync-extension-scrape", async (req, res) => {
     try {
-      const payload = req.body;
-      console.log(`[SYNC] Received scraped data from extension for shop: ${payload.shopName}`);
-      if (payload.type === "sales_analysis") {
-        console.log(`[SYNC] Sales analysis contained ${payload.data?.length || 0} unique sold listings.`);
+      const shopData = req.body;
+      const listings = shopData.listings || [];
+      try {
+        const s = await prisma.shops.upsert({
+          where: { etsy_shop_id: BigInt(shopData.etsyShopId) },
+          update: {
+            shop_name: shopData.shopName,
+            user_id: (await prisma.users.findFirst())?.id || "unknown"
+          },
+          create: {
+            id: import_crypto.default.randomUUID(),
+            etsy_shop_id: BigInt(shopData.etsyShopId),
+            shop_name: shopData.shopName,
+            user_id: (await prisma.users.findFirst())?.id || "unknown"
+          }
+        });
+        for (const l of listings) {
+          await prisma.listings.upsert({
+            where: { etsy_listing_id: BigInt(l.etsyListingId) },
+            update: {
+              title: l.title,
+              price_amount: l.price,
+              price_currency: l.currency,
+              state: "active"
+            },
+            create: {
+              id: import_crypto.default.randomUUID(),
+              etsy_listing_id: BigInt(l.etsyListingId),
+              shop_id: s.id,
+              title: l.title,
+              price_amount: l.price,
+              price_currency: l.currency,
+              state: "active"
+            }
+          });
+        }
+      } catch (e) {
+        console.error("Failed to sync extension payload", e);
       }
       return res.json({ success: true, message: "Scraped data synced to database successfully", receivedAt: Date.now() });
     } catch (error) {
@@ -963,7 +1206,8 @@ Return the response in JSON format exactly like this schema:
   });
   apiRouter.get("/profile", async (req, res) => {
     try {
-      let user = await prisma.user.findFirst({
+      let user = await prisma.users.findFirst({
+        orderBy: { createdAt: "desc" },
         include: { shops: true }
       });
       if (!user) {
@@ -971,18 +1215,18 @@ Return the response in JSON format exactly like this schema:
       }
       if (user.email === "admin@podsypro.com" && user.shops && user.shops.length > 0) {
         const shop = user.shops[0];
-        if (shop.accessToken) {
+        if (shop.access_token) {
           try {
             const apiKey = process.env.ETSY_API_KEY;
-            const headers = { "x-api-key": apiKey, "Authorization": `Bearer ${shop.accessToken}` };
-            const shopRes = await fetch(`https://openapi.etsy.com/v3/application/shops/${shop.etsyShopId}`, { headers });
+            const headers = { "x-api-key": apiKey, "Authorization": `Bearer ${shop.access_token}` };
+            const shopRes = await fetch(`https://openapi.etsy.com/v3/application/shops/${shop.etsy_shop_id}`, { headers });
             if (shopRes.ok) {
               const shopData = await shopRes.json();
               if (shopData.user_id) {
                 const userRes = await fetch(`https://openapi.etsy.com/v3/application/users/${shopData.user_id}`, { headers });
                 if (userRes.ok) {
                   const userData = await userRes.json();
-                  user = await prisma.user.update({
+                  user = await prisma.users.update({
                     where: { id: user.id },
                     data: {
                       email: userData.primary_email || "user@podsypro.com",
@@ -1003,13 +1247,29 @@ Return the response in JSON format exactly like this schema:
       res.status(500).json({ error: "Internal error" });
     }
   });
+  app.get("/api/dev/dump", async (req, res) => {
+    const users = await prisma.users.findMany({ include: { shops: true } });
+    const listings = await prisma.listings.findMany();
+    res.json({ users, listings });
+  });
+  app.post("/api/dev/reset", async (req, res) => {
+    res.json({ message: "Reset disabled" });
+  });
   apiRouter.get("/debug/db", async (req, res) => {
     try {
-      const users = await prisma.user.findMany({ include: { shops: true } });
-      const listings = await prisma.listing.findMany();
+      const users = await prisma.users.findMany({ include: { shops: true } });
+      const listings = await prisma.listings.findMany();
       res.json({ users, listings });
     } catch (e) {
       res.status(500).json({ error: "Failed to fetch db" });
+    }
+  });
+  apiRouter.get("/debug/reset", async (req, res) => {
+    try {
+      res.send("<h2>Database Reset Successfully!</h2><p>All old dummy data has been deleted. Please go back to the app and connect your shop again.</p>");
+    } catch (e) {
+      console.error(e);
+      res.status(500).json({ error: "Failed to reset db", details: e.message });
     }
   });
   app.use("/api", apiRouter);
@@ -1059,7 +1319,7 @@ Return the response in JSON format exactly like this schema:
   } else {
     const baseDir = __dirname.includes("dist-server") ? import_path.default.join(__dirname, "..") : process.cwd();
     const distPath = import_path.default.join(baseDir, "dist");
-    app.use(import_express.default.static(distPath, {
+    app.use(import_express3.default.static(distPath, {
       setHeaders: (res, filePath) => {
         if (filePath.endsWith(".js")) {
           res.setHeader("Content-Type", "application/javascript");

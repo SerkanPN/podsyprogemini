@@ -6,183 +6,459 @@ datasource db {
   provider = "postgresql"
 }
 
-model User {
-  id        String   @id @default(uuid())
-  email     String   @unique
-  name      String?
-  createdAt DateTime @default(now())
-  shops     Shop[]
+model ads_snapshots {
+  id               String    @id @db.Uuid
+  shop_id          String    @db.Uuid
+  listing_id       String?   @db.Uuid
+  snapshot_date    DateTime  @db.Date
+  spend            Decimal?  @db.Decimal(10, 2)
+  clicks           Int?
+  views            Int?
+  orders_from_ads  Int?
+  revenue_from_ads Decimal?  @db.Decimal(10, 2)
+  roas             Decimal?  @db.Decimal(6, 2)
+  source           String    @default("extension_scrape")
+  captured_at      DateTime  @default(now()) @db.Timestamptz(6)
+  listings         listings? @relation(fields: [listing_id], references: [id], onUpdate: NoAction)
+  shops            shops     @relation(fields: [shop_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([listing_id, snapshot_date], map: "idx_ads_snapshots_listing")
+  @@index([shop_id, snapshot_date], map: "idx_ads_snapshots_shop")
 }
 
-model KeywordQuery {
-  id             String    @id @default(uuid())
-  keyword        String    @unique
-  listingIds     String    @default("")
-  lastQueriedAt  DateTime  @default(now())
+model competitor_sales_activity {
+  id               String   @id @db.Uuid
+  listing_id       String   @db.Uuid
+  shop_id          String   @db.Uuid
+  sold_signal_type String   @default("RECENT_SALES_COUNT")
+  sold_quantity    Int?
+  raw_text         String?
+  source           String   @default("extension_scrape")
+  captured_at      DateTime @default(now()) @db.Timestamptz(6)
+  listings         listings @relation(fields: [listing_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  shops            shops    @relation(fields: [shop_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([listing_id, captured_at(sort: Desc)], map: "idx_sales_activity_listing")
+  @@index([shop_id, captured_at(sort: Desc)], map: "idx_sales_activity_shop")
 }
 
-model Shop {
-  id            String          @id @default(uuid())
-  userId        String
-  etsyShopId    String          @unique
-  shopName      String
-  accessToken   String?
-  refreshToken  String?
-  totalSales    Int             @default(0)
-  hasFullDetails Boolean        @default(false)
-  rawJson       String          @default("{}")
-  lastQueriedAt DateTime        @default(now())
-  createdAt     DateTime        @default(now())
-  user          User            @relation(fields: [userId], references: [id])
-  listings      Listing[]
-  snapshots     ShopSnapshot[]
-  receipts      Receipt[]
-  transactions  Transaction[]
+model competitor_snapshots {
+  id                     String   @id @db.Uuid
+  shop_id                String   @db.Uuid
+  snapshot_date          DateTime @db.Date
+  listing_active_count   Int?
+  review_count           Int?
+  transaction_sold_count Int?
+  shops                  shops    @relation(fields: [shop_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([shop_id, snapshot_date])
+  @@index([shop_id], map: "idx_competitor_snapshots_shop")
 }
 
-model ShopSnapshot {
-  id         String   @id @default(uuid())
-  shopId     String
-  totalSales Int
-  createdAt  DateTime @default(now())
-  shop       Shop     @relation(fields: [shopId], references: [id])
+model competitor_watchlist {
+  id                                                   String   @id @db.Uuid
+  owner_shop_id                                        String   @db.Uuid
+  competitor_shop_id                                   String   @db.Uuid
+  added_at                                             DateTime @default(now()) @db.Timestamptz(6)
+  is_active                                            Boolean  @default(true)
+  shops_competitor_watchlist_competitor_shop_idToshops shops    @relation("competitor_watchlist_competitor_shop_idToshops", fields: [competitor_shop_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  shops_competitor_watchlist_owner_shop_idToshops      shops    @relation("competitor_watchlist_owner_shop_idToshops", fields: [owner_shop_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([owner_shop_id, competitor_shop_id])
+  @@index([owner_shop_id], map: "idx_watchlist_owner")
 }
 
-model Listing {
-  id            String            @id @default(uuid())
-  shopId        String
-  etsyId        String            @unique
-  title         String
-  description   String?
-  price         Float?
-  views         Int               @default(0)
-  favorites     Int               @default(0)
-  imagesJson    String            @default("[]")
-  videosJson    String            @default("[]")
-  tagsJson      String            @default("[]")
-  inventoryJson String            @default("{}")
-  propertiesJson String           @default("[]")
-  reviewsJson   String            @default("[]")
-  shippingPrice Float?
-  url           String            @default("")
-  hasFullDetails Boolean          @default(false)
-  rawJson       String            @default("{}")
-  lastQueriedAt DateTime          @default(now())
-  createdAt     DateTime          @default(now())
-  updatedAt     DateTime          @default(now())
-  shop          Shop              @relation(fields: [shopId], references: [id])
-  snapshots     ListingSnapshot[]
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model extension_action_log {
+  id                String    @id @db.Uuid
+  shop_id           String    @db.Uuid
+  user_id           String?   @db.Uuid
+  action_type       String
+  target_listing_id String?   @db.Uuid
+  payload           Json
+  status            String    @default("RECEIVED")
+  error_message     String?
+  created_at        DateTime  @default(now()) @db.Timestamptz(6)
+  processed_at      DateTime? @db.Timestamptz(6)
+  shops             shops     @relation(fields: [shop_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  listings          listings? @relation(fields: [target_listing_id], references: [id], onUpdate: NoAction)
+  users             users?    @relation(fields: [user_id], references: [id], onUpdate: NoAction)
+
+  @@index([shop_id, created_at(sort: Desc)], map: "idx_ext_log_shop")
+  @@index([status], map: "idx_ext_log_status")
 }
 
-model ListingSnapshot {
-  id          String   @id @default(uuid())
-  listingId   String
-  views       Int
-  favorites   Int
-  price       Float?
-  createdAt   DateTime @default(now())
-  listing     Listing  @relation(fields: [listingId], references: [id])
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model fulfillment_orders {
+  id                String        @id @db.Uuid
+  receipt_id        String        @db.Uuid
+  provider_id       String        @db.Uuid
+  provider_order_id String?
+  status            String        @default("SENT")
+  tracking_number   String?
+  tracking_carrier  String?
+  tracking_url      String?
+  error_message     String?
+  created_at        DateTime      @default(now()) @db.Timestamptz(6)
+  updated_at        DateTime      @default(now()) @db.Timestamptz(6)
+  pod_providers     pod_providers @relation(fields: [provider_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  receipts          receipts      @relation(fields: [receipt_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([receipt_id], map: "idx_fulfillment_receipt")
 }
 
-model TrackedItem {
-  id        String   @id @default(uuid())
-  keyword   String
-  volume    Int      @default(0)
-  createdAt DateTime @default(now())
+model ledger_entries {
+  id               String    @id @db.Uuid
+  shop_id          String    @db.Uuid
+  amount           Decimal?  @db.Decimal(10, 2)
+  currency         String?
+  description      String?
+  balance          Decimal?  @db.Decimal(10, 2)
+  create_timestamp DateTime? @db.Timestamptz(6)
+  shops            shops     @relation(fields: [shop_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([shop_id], map: "idx_ledger_shop")
 }
 
-model SearchCache {
-  id        String   @id @default(uuid())
-  query     String   @unique
-  data      String   // JSON stringified results
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+model listing_inventory {
+  id              String   @id @db.Uuid
+  listing_id      String   @db.Uuid
+  etsy_product_id BigInt?
+  sku             String?
+  property_values Json?
+  offerings       Json?
+  last_synced_at  DateTime @default(now()) @db.Timestamptz(6)
+  listings        listings @relation(fields: [listing_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([listing_id], map: "idx_inventory_listing")
 }
 
-model AnalysisCache {
-  id        String   @id @default(uuid())
-  type      String   // "keyword", "listing", "shop"
-  targetId  String   
-  data      String   // JSON stringified analysis result
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+model listing_provider_mapping {
+  id                  String             @id @db.Uuid
+  listing_id          String             @db.Uuid
+  provider_id         String             @db.Uuid
+  blueprint_id        String             @db.Uuid
+  provider_product_id String?
+  variant_mapping     Json?
+  product_blueprints  product_blueprints @relation(fields: [blueprint_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  listings            listings           @relation(fields: [listing_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  pod_providers       pod_providers      @relation(fields: [provider_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
-  @@unique([type, targetId])
+  @@unique([listing_id, provider_id])
+  @@index([listing_id], map: "idx_lpm_listing")
 }
 
-model CronJob {
-  id        String   @id @default(uuid())
-  name      String   @unique
-  lastRun   DateTime?
-  status    String   @default("idle")
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model listings {
+  id                        String                      @id @db.Uuid
+  etsy_listing_id           BigInt                      @unique
+  shop_id                   String                      @db.Uuid
+  title                     String?
+  description               String?
+  price_amount              Decimal?                    @db.Decimal(10, 2)
+  price_currency            String?
+  state                     String?
+  taxonomy_id               BigInt?
+  tags                      Json?
+  materials                 Json?
+  num_favorers              Int?
+  shipping_profile_id       BigInt?
+  return_policy_id          BigInt?
+  shop_section_id           BigInt?
+  last_synced_at            DateTime?                   @db.Timestamptz(6)
+  created_at                DateTime                    @default(now()) @db.Timestamptz(6)
+  updated_at                DateTime                    @default(now()) @db.Timestamptz(6)
+  ads_snapshots             ads_snapshots[]
+  competitor_sales_activity competitor_sales_activity[]
+  extension_action_log      extension_action_log[]
+  listing_inventory         listing_inventory[]
+  listing_provider_mapping  listing_provider_mapping[]
+  shops                     shops                       @relation(fields: [shop_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  reviews                   reviews[]
+  transactions              transactions[]
+
+  @@index([shop_id], map: "idx_listings_shop")
+  @@index([state], map: "idx_listings_state")
+  @@index([taxonomy_id], map: "idx_listings_taxonomy")
 }
 
-model TrendData {
-  id        String   @id @default(uuid())
-  niche     String
-  score     Float
-  createdAt DateTime @default(now())
+model market_snapshots {
+  id                  String   @id @db.Uuid
+  taxonomy_id         BigInt
+  snapshot_date       DateTime @db.Date
+  sample_size         Int?
+  price_histogram     Json?
+  unique_seller_count Int?
+  opportunity_score   Decimal? @db.Decimal(5, 2)
+
+  @@unique([taxonomy_id, snapshot_date])
+  @@index([taxonomy_id], map: "idx_market_snapshots_taxonomy")
 }
 
-model PodAsset {
-  id        String   @id @default(uuid())
-  name      String
-  url       String
-  type      String   // "cmyk_print", "mockup", "video"
-  createdAt DateTime @default(now())
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model news_feed_items {
+  id              String    @id @db.Uuid
+  source          String    @default("twitter")
+  source_account  String?
+  content_summary String
+  original_url    String?
+  published_at    DateTime? @db.Timestamptz(6)
+  category        String?
+  created_at      DateTime  @default(now()) @db.Timestamptz(6)
+
+  @@index([published_at(sort: Desc)], map: "idx_news_feed_published")
 }
 
-model GeneratedListing {
-  id        String   @id @default(uuid())
-  prompt    String
-  status    String   @default("pending") // pending, generating, ready, published
-  resultUrl String?
-  createdAt DateTime @default(now())
+model pinterest_snapshots {
+  id               String   @id @db.Uuid
+  keyword_or_tag   String
+  snapshot_date    DateTime @db.Date
+  pin_count        Int?
+  engagement_score Decimal? @db.Decimal(10, 2)
+
+  @@unique([keyword_or_tag, snapshot_date])
 }
 
-model AiReport {
-  id        String   @id @default(uuid())
-  type      String   // "weekly", "monthly"
-  content   String
-  audioUrl  String?
-  createdAt DateTime @default(now())
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model plan_limits {
+  id                           String  @id @db.Uuid
+  tier                         String  @unique
+  competitor_tracking_limit    Int
+  listing_analysis_daily_limit Int
+  clone_studio_monthly_limit   Int
+  market_analysis_access       Boolean @default(false)
 }
 
-model Receipt {
-  id               String        @id @default(uuid())
-  shopId           String
-  receiptId        String        @unique // Etsy's receipt_id
-  buyerEmail       String?
-  buyerUserId      String?
-  creationTsz      Int           // Creation timestamp from Etsy
-  grandtotal       Float?
-  subtotal         Float?
-  discountAmt      Float?
-  shippingCost     Float?
-  status           String?       // paid, shipped, etc.
-  messageFromBuyer String?
-  rawJson          String        @default("{}")
-  createdAt        DateTime      @default(now())
-  updatedAt        DateTime      @updatedAt
-  shop             Shop          @relation(fields: [shopId], references: [id])
-  transactions     Transaction[]
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model pod_providers {
+  id                       String                     @id @db.Uuid
+  user_id                  String                     @db.Uuid
+  provider                 String
+  api_key                  String
+  connected_at             DateTime                   @default(now()) @db.Timestamptz(6)
+  is_active                Boolean                    @default(true)
+  fulfillment_orders       fulfillment_orders[]
+  listing_provider_mapping listing_provider_mapping[]
+  users                    users                      @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  product_blueprints       product_blueprints[]
+
+  @@index([user_id], map: "idx_pod_providers_user")
 }
 
-model Transaction {
-  id             String   @id @default(uuid())
-  receiptId      String
-  shopId         String
-  transactionId  String   @unique // Etsy's transaction_id
-  title          String
-  description    String?
-  quantity       Int
-  price          Float
-  shippingCost   Float?
-  listingId      String?  // Etsy's listing_id if available
-  productId      String?
-  rawJson        String   @default("{}")
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-  receipt        Receipt  @relation(fields: [receiptId], references: [id])
-  shop           Shop     @relation(fields: [shopId], references: [id])
+model pricing_config {
+  id         String   @id @db.Uuid
+  key        String   @unique
+  value      Decimal  @db.Decimal(10, 4)
+  updated_at DateTime @default(now()) @db.Timestamptz(6)
+}
+
+model product_blueprints {
+  id                       String                     @id @db.Uuid
+  provider_id              String                     @db.Uuid
+  provider_blueprint_id    String
+  name                     String
+  print_areas              Json?
+  variant_options          Json?
+  base_cost                Json?
+  last_synced_at           DateTime                   @default(now()) @db.Timestamptz(6)
+  listing_provider_mapping listing_provider_mapping[]
+  pod_providers            pod_providers              @relation(fields: [provider_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([provider_id], map: "idx_blueprints_provider")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model publish_jobs {
+  id                String   @id @db.Uuid
+  user_id           String   @db.Uuid
+  shop_id           String   @db.Uuid
+  source_listing_id BigInt?
+  status            String   @default("PENDING")
+  etsy_listing_id   BigInt?
+  error_message     String?
+  created_at        DateTime @default(now()) @db.Timestamptz(6)
+  updated_at        DateTime @default(now()) @db.Timestamptz(6)
+  shops             shops    @relation(fields: [shop_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users             users    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([shop_id], map: "idx_publish_jobs_shop")
+  @@index([status], map: "idx_publish_jobs_status")
+}
+
+model receipts {
+  id                 String               @id @db.Uuid
+  etsy_receipt_id    BigInt               @unique
+  shop_id            String               @db.Uuid
+  status             String?
+  grandtotal_amount  Decimal?             @db.Decimal(10, 2)
+  currency           String?
+  create_timestamp   DateTime?            @db.Timestamptz(6)
+  is_paid            Boolean?
+  is_shipped         Boolean?
+  last_synced_at     DateTime             @default(now()) @db.Timestamptz(6)
+  fulfillment_orders fulfillment_orders[]
+  shops              shops                @relation(fields: [shop_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  transactions       transactions[]
+
+  @@index([shop_id], map: "idx_receipts_shop")
+}
+
+model reviews {
+  id               String    @id @db.Uuid
+  etsy_review_id   BigInt    @unique
+  shop_id          String    @db.Uuid
+  listing_id       String?   @db.Uuid
+  rating           Int?      @db.SmallInt
+  review_text      String?
+  create_timestamp DateTime? @db.Timestamptz(6)
+  listings         listings? @relation(fields: [listing_id], references: [id], onUpdate: NoAction)
+  shops            shops     @relation(fields: [shop_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([listing_id], map: "idx_reviews_listing")
+  @@index([shop_id], map: "idx_reviews_shop")
+}
+
+model seasonal_events {
+  id                    String @id @db.Uuid
+  name                  String
+  date_rule             String
+  relevant_taxonomy_ids Json?
+  relevant_tags         Json?
+  lead_time_days        Int    @default(21)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model shops {
+  id                                                                  String                      @id @db.Uuid
+  user_id                                                             String?                     @db.Uuid
+  etsy_shop_id                                                        BigInt                      @unique
+  etsy_user_id                                                        String?
+  shop_name                                                           String
+  is_own_shop                                                         Boolean                     @default(false)
+  listing_active_count                                                Int?
+  review_count                                                        Int?
+  review_average                                                      Decimal?                    @db.Decimal(3, 2)
+  transaction_sold_count                                              Int?
+  create_date                                                         DateTime?                   @db.Timestamptz(6)
+  subscription_tier                                                   String                      @default("NONE")
+  subscription_expires_at                                             DateTime?                   @db.Timestamptz(6)
+  subscription_source                                                 String?
+  quota_overrides                                                     Json?
+  etsy_connection_status                                              String                      @default("CONNECTED")
+  last_synced_at                                                      DateTime?                   @db.Timestamptz(6)
+  created_at                                                          DateTime                    @default(now()) @db.Timestamptz(6)
+  updated_at                                                          DateTime                    @default(now()) @db.Timestamptz(6)
+  access_token                                                        String?                     @db.Text
+  refresh_token                                                       String?                     @db.Text
+  ads_snapshots                                                       ads_snapshots[]
+  competitor_sales_activity                                           competitor_sales_activity[]
+  competitor_snapshots                                                competitor_snapshots[]
+  competitor_watchlist_competitor_watchlist_competitor_shop_idToshops competitor_watchlist[]      @relation("competitor_watchlist_competitor_shop_idToshops")
+  competitor_watchlist_competitor_watchlist_owner_shop_idToshops      competitor_watchlist[]      @relation("competitor_watchlist_owner_shop_idToshops")
+  extension_action_log                                                extension_action_log[]
+  ledger_entries                                                      ledger_entries[]
+  listings                                                            listings[]
+  publish_jobs                                                        publish_jobs[]
+  receipts                                                            receipts[]
+  reviews                                                             reviews[]
+  users                                                               users?                      @relation(fields: [user_id], references: [id], onUpdate: NoAction)
+  subscription_requests                                               subscription_requests[]
+
+  @@index([is_own_shop], map: "idx_shops_is_own")
+  @@index([user_id], map: "idx_shops_user_id")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model subscription_requests {
+  id             String    @id @db.Uuid
+  shop_id        String    @db.Uuid
+  user_email     String
+  requested_at   DateTime  @default(now()) @db.Timestamptz(6)
+  plan_requested String
+  amount         Decimal?  @db.Decimal(10, 2)
+  currency       String?
+  status         String    @default("PENDING")
+  admin_note     String?
+  approved_by    String?
+  approved_at    DateTime? @db.Timestamptz(6)
+  shops          shops     @relation(fields: [shop_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([shop_id], map: "idx_subreq_shop")
+  @@index([status], map: "idx_subreq_status")
+}
+
+model tag_snapshots {
+  id                    String   @id @db.Uuid
+  tag                   String
+  snapshot_date         DateTime @db.Date
+  avg_price             Decimal? @db.Decimal(10, 2)
+  total_favorites       Int?
+  listing_count         Int?
+  related_tags          Json?
+  taxonomy_distribution Json?
+  created_at            DateTime @default(now()) @db.Timestamptz(6)
+
+  @@unique([tag, snapshot_date])
+  @@index([tag], map: "idx_tag_snapshots_tag")
+}
+
+model taxonomy_cache {
+  id               String   @id @db.Uuid
+  etsy_taxonomy_id BigInt   @unique
+  level            Int?
+  name             String
+  parent_id        BigInt?
+  full_path        Json?
+  last_synced_at   DateTime @default(now()) @db.Timestamptz(6)
+}
+
+model transactions {
+  id                  String    @id @db.Uuid
+  etsy_transaction_id BigInt    @unique
+  receipt_id          String    @db.Uuid
+  listing_id          String?   @db.Uuid
+  quantity            Int?
+  price_amount        Decimal?  @db.Decimal(10, 2)
+  sku                 String?
+  variations          Json?
+  listings            listings? @relation(fields: [listing_id], references: [id], onUpdate: NoAction)
+  receipts            receipts  @relation(fields: [receipt_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([listing_id], map: "idx_transactions_listing")
+  @@index([receipt_id], map: "idx_transactions_receipt")
+}
+
+model trend_google_snapshots {
+  id              String   @id @db.Uuid
+  keyword         String
+  snapshot_date   DateTime @db.Date
+  interest_score  Int?     @db.SmallInt
+  related_queries Json?
+
+  @@unique([keyword, snapshot_date])
+}
+
+model trend_snapshots {
+  id                 String   @id @db.Uuid
+  tag_or_taxonomy_id String
+  snapshot_date      DateTime @db.Date
+  avg_price          Decimal? @db.Decimal(10, 2)
+  total_favorites    Int?
+  listing_count      Int?
+
+  @@unique([tag_or_taxonomy_id, snapshot_date])
+  @@index([tag_or_taxonomy_id], map: "idx_trend_snapshots_key")
+}
+
+model users {
+  id                   String                 @id @db.Uuid
+  etsy_user_id         String                 @unique
+  email                String?
+  name                 String?
+  created_at           DateTime               @default(now()) @db.Timestamptz(6)
+  last_login_at        DateTime               @default(now()) @db.Timestamptz(6)
+  extension_action_log extension_action_log[]
+  pod_providers        pod_providers[]
+  publish_jobs         publish_jobs[]
+  shops                shops[]
 }
