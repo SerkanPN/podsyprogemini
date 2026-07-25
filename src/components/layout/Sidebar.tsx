@@ -17,7 +17,8 @@ import {
   Image,
   Lightbulb,
   Copy,
-  FileText
+  FileText,
+  Package
 } from 'lucide-react';
 import { useState } from 'react';
 import { cn } from '../../lib/utils';
@@ -85,6 +86,7 @@ export default function Sidebar() {
             {renderLink("/profile", <User className="w-5 h-5 text-indigo-400" />, "Profile")}
             {renderLink("/my-favs", <Heart className="w-5 h-5 text-indigo-400" />, "My Favs")}
             {renderLink("/my-shop", <ShoppingBag className="w-5 h-5 text-indigo-400" />, "My Shop")}
+            {renderLink("/fulfillment", <Package className="w-5 h-5 text-indigo-400" />, "Fulfillment")}
 
             <div className="text-[10px] font-bold text-zinc-600 text-center uppercase mb-1 mt-3">Analytics</div>
             {renderLink("/keyword-analysis", <Key className="w-5 h-5 text-amber-400" />, "Tag Analysis")}
@@ -117,6 +119,7 @@ export default function Sidebar() {
                   {renderLink("/profile", <User className="w-4 h-4" />, "Profile")}
                   {renderLink("/my-favs", <Heart className="w-4 h-4" />, "My Favs")}
                   {renderLink("/my-shop", <ShoppingBag className="w-4 h-4" />, "My Shop")}
+                  {renderLink("/fulfillment", <Package className="w-4 h-4" />, "Fulfillment")}
                 </div>
               )}
             </div>

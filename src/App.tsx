@@ -22,6 +22,7 @@ import MockupStudio from './pages/MockupStudio';
 import IdeaStudio from './pages/IdeaStudio';
 import CloneStudio from './pages/CloneStudio';
 import ReportStudio from './pages/ReportStudio';
+import Fulfillment from './pages/Fulfillment';
 
 export default function App() {
   const { connect, disconnect } = useSocketStore();
@@ -68,6 +69,8 @@ export default function App() {
           <Route path="ai-studio/idea" element={<IdeaStudio />} />
           <Route path="ai-studio/clone" element={<CloneStudio />} />
           <Route path="ai-studio/report" element={<ReportStudio />} />
+          
+          <Route path="fulfillment" element={<Fulfillment />} />
         </Route>
       </Routes>
     </BrowserRouter>

@@ -22,7 +22,7 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
 ));
 
 // server.ts
-var import_express3 = __toESM(require("express"), 1);
+var import_express5 = __toESM(require("express"), 1);
 var import_path = __toESM(require("path"), 1);
 var import_vite = require("vite");
 var import_http = __toESM(require("http"), 1);
@@ -105,6 +105,29 @@ async function requireEtsyShop(req, res, next) {
     subscriptionTier: shop.subscription_tier,
     subscriptionExpiresAt: shop.subscription_expires_at
   };
+  next();
+}
+function requireActiveSubscription(req, res, next) {
+  const shop = req.podsyShop;
+  if (!shop) {
+    return res.status(500).json({ error: "MIDDLEWARE_ORDER_ERROR" });
+  }
+  if (shop.subscriptionTier === "NONE") {
+    return res.status(402).json({
+      error: "PAYMENT_REQUIRED",
+      message: "Podsy'yi kullanmaya ba\u015Flamak i\xE7in \xF6deme talebinde bulunmal\u0131s\u0131n\u0131z.",
+      redirectTo: "/payment-pending"
+    });
+  }
+  const isExpired = shop.subscriptionExpiresAt !== null && shop.subscriptionExpiresAt.getTime() < Date.now();
+  if (isExpired) {
+    return res.status(402).json({
+      error: "SUBSCRIPTION_EXPIRED",
+      message: "Aboneli\u011Finizin s\xFCresi doldu. Yenilemek i\xE7in sales@podsy.pro ile ileti\u015Fime ge\xE7in.",
+      redirectTo: "/payment-pending",
+      expiredAt: shop.subscriptionExpiresAt
+    });
+  }
   next();
 }
 
@@ -243,6 +266,120 @@ router2.post("/reject", async (req, res) => {
 });
 var admin_subscriptions_default = router2;
 
+// src/routes/pod-providers.ts
+var import_express3 = require("express");
+var router3 = (0, import_express3.Router)();
+router3.get("/", async (req, res) => {
+  const user = req.user;
+  if (!user) return res.status(401).json({ error: "Unauthorized" });
+  try {
+    const providers = await prisma.pod_providers.findMany({
+      where: { user_id: user.id },
+      select: { id: true, provider: true, is_active: true, connected_at: true }
+      // don't send API key to client
+    });
+    res.json(providers);
+  } catch (error) {
+    res.status(500).json({ error: "Failed to fetch providers" });
+  }
+});
+router3.post("/", async (req, res) => {
+  const user = req.user;
+  if (!user) return res.status(401).json({ error: "Unauthorized" });
+  const { provider, api_key } = req.body;
+  if (!provider || !api_key) return res.status(400).json({ error: "Missing required fields" });
+  try {
+    const existing = await prisma.pod_providers.findFirst({
+      where: { user_id: user.id, provider }
+    });
+    if (existing) {
+      const updated = await prisma.pod_providers.update({
+        where: { id: existing.id },
+        data: { api_key, is_active: true }
+      });
+      return res.json({ success: true, id: updated.id });
+    } else {
+      const newProvider = await prisma.pod_providers.create({
+        data: {
+          user_id: user.id,
+          provider,
+          api_key,
+          is_active: true
+        }
+      });
+      return res.json({ success: true, id: newProvider.id });
+    }
+  } catch (error) {
+    res.status(500).json({ error: "Failed to save provider config" });
+  }
+});
+router3.post("/:id/disable", async (req, res) => {
+  const user = req.user;
+  if (!user) return res.status(401).json({ error: "Unauthorized" });
+  try {
+    const p = await prisma.pod_providers.findFirst({ where: { id: req.params.id, user_id: user.id } });
+    if (!p) return res.status(404).json({ error: "Not found" });
+    await prisma.pod_providers.update({
+      where: { id: p.id },
+      data: { is_active: false }
+    });
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: "Failed to update" });
+  }
+});
+var pod_providers_default = router3;
+
+// src/routes/fulfillment.ts
+var import_express4 = require("express");
+var router4 = (0, import_express4.Router)();
+router4.get("/orders", async (req, res) => {
+  const shopId = req.shopId;
+  if (!shopId) return res.status(401).json({ error: "Shop required" });
+  try {
+    const orders = await prisma.fulfillment_orders.findMany({
+      where: {
+        receipts: {
+          shop_id: shopId
+        }
+      },
+      include: {
+        receipts: true,
+        pod_providers: {
+          select: { provider: true }
+        }
+      },
+      orderBy: { created_at: "desc" },
+      take: 50
+    });
+    res.json(orders);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Failed to fetch orders" });
+  }
+});
+router4.post("/mapping", async (req, res) => {
+  const shopId = req.shopId;
+  if (!shopId) return res.status(401).json({ error: "Shop required" });
+  const { listing_id, provider_id, blueprint_id, provider_product_id, variant_mapping } = req.body;
+  try {
+    const newMapping = await prisma.listing_provider_mapping.create({
+      data: {
+        listing_id,
+        provider_id,
+        blueprint_id,
+        provider_product_id,
+        variant_mapping
+      }
+    });
+    res.json({ success: true, id: newMapping.id });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Failed to create mapping" });
+  }
+});
+var fulfillment_default = router4;
+
 // server.ts
 process.env.GEMINI_API_KEY = "AIzaSyC4V6fCSqUh6HtAFCNiMSocJqS4rsAkFBk";
 import_dotenv2.default.config();
@@ -251,7 +388,7 @@ if (!import_fs.default.existsSync(ASSETS_FILE)) {
   import_fs.default.writeFileSync(ASSETS_FILE, JSON.stringify([]));
 }
 async function startServer() {
-  const app = (0, import_express3.default)();
+  const app = (0, import_express5.default)();
   const server = import_http.default.createServer(app);
   const io = new import_socket.Server(server, {
     cors: { origin: "*" }
@@ -267,10 +404,12 @@ async function startServer() {
       next();
     }
   });
-  app.use(import_express3.default.json({ limit: "10mb" }));
+  app.use(import_express5.default.json({ limit: "10mb" }));
   app.use((0, import_cookie_parser.default)());
   app.use("/api/payment-pending", payment_pending_default);
   app.use("/api/admin/subscriptions", admin_subscriptions_default);
+  app.use("/api/pod-providers", requireEtsyShop, requireActiveSubscription, pod_providers_default);
+  app.use("/api/fulfillment", requireEtsyShop, requireActiveSubscription, fulfillment_default);
   app.get("/api/pod-assets", async (req, res) => {
     try {
       const data = await import_promises.default.readFile(ASSETS_FILE, "utf-8");
@@ -286,7 +425,7 @@ async function startServer() {
       console.log("Client disconnected", socket.id);
     });
   });
-  const apiRouter = import_express3.default.Router();
+  const apiRouter = import_express5.default.Router();
   apiRouter.get("/admin/system-status", async (req, res) => {
     try {
       const count = await prisma.shops.count({ where: { access_token: { not: null } } });
@@ -1319,7 +1458,7 @@ Return the response in JSON format exactly like this schema:
   } else {
     const baseDir = __dirname.includes("dist-server") ? import_path.default.join(__dirname, "..") : process.cwd();
     const distPath = import_path.default.join(baseDir, "dist");
-    app.use(import_express3.default.static(distPath, {
+    app.use(import_express5.default.static(distPath, {
       setHeaders: (res, filePath) => {
         if (filePath.endsWith(".js")) {
           res.setHeader("Content-Type", "application/javascript");

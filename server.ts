@@ -13,6 +13,8 @@ import cookieParser from "cookie-parser";
 import { issueSession } from "./src/lib/session";
 import paymentPendingRouter from "./src/routes/payment-pending";
 import adminSubscriptionsRouter from "./src/routes/admin-subscriptions";
+import podProvidersRouter from "./src/routes/pod-providers";
+import fulfillmentRouter from "./src/routes/fulfillment";
 import { requireEtsyShop, requireActiveSubscription } from "./src/middleware/subscription";
 
 dotenv.config();
@@ -48,6 +50,8 @@ async function startServer() {
 
   app.use("/api/payment-pending", paymentPendingRouter);
   app.use("/api/admin/subscriptions", adminSubscriptionsRouter);
+  app.use("/api/pod-providers", requireEtsyShop, requireActiveSubscription, podProvidersRouter);
+  app.use("/api/fulfillment", requireEtsyShop, requireActiveSubscription, fulfillmentRouter);
 
   app.get("/api/pod-assets", async (req, res) => {
     try {

@@ -7,6 +7,7 @@ import {
   isListingEligibleForAutoSync,
   isShopEligibleForAutoSync
 } from "./db";
+import { pollAndCreateFulfillmentOrders } from "./src/lib/fulfillment-service";
 
 console.log("Scheduler initialization...");
 
@@ -146,6 +147,19 @@ export async function runSyncJob() {
     }
   } catch (err) {
     console.error("[SCHEDULER] Error processing shop sync:", err);
+  }
+
+  // 4. Fulfillment Polling (Every 30 minutes in a real app, doing it here hourly for now)
+  try {
+    const shops = await prisma.shop.findMany({
+      where: { subscriptionStatus: 'ACTIVE' }
+    });
+    console.log(`[SCHEDULER] Found ${shops.length} active shops for fulfillment polling.`);
+    for (const s of shops) {
+      await pollAndCreateFulfillmentOrders(s.id).catch(e => console.error(`Failed to poll shop ${s.id}`, e));
+    }
+  } catch(err) {
+    console.error("[SCHEDULER] Error in fulfillment polling:", err);
   }
 
   console.log("[SCHEDULER] Automated sync job finished.");
