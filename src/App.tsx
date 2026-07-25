@@ -5,6 +5,7 @@ import { useAppStore } from './stores/useAppStore';
 
 import Layout from './components/layout/Layout';
 import PaymentPending from './pages/PaymentPending';
+import AdminSubscriptions from './pages/AdminSubscriptions';
 import Dashboard from './pages/Dashboard';
 import Profile from './pages/Profile';
 import MyFavs from './pages/MyFavs';
@@ -43,6 +44,7 @@ export default function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/payment-pending" element={<PaymentPending />} />
+        <Route path="/admin/subscriptions" element={<AdminSubscriptions />} />
         
         <Route path="/" element={<Layout />}>
           <Route index element={<Navigate to="/dashboard" replace />} />
