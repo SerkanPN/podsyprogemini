@@ -1208,6 +1208,16 @@ Return the response in JSON format exactly like this schema:
     }
   });
 
+  apiRouter.get("/debug/reset", async (req, res) => {
+    try {
+      await prisma.shop.deleteMany();
+      await prisma.user.deleteMany();
+      res.send("<h2>Database Reset Successfully!</h2><p>All old dummy data has been deleted. Please go back to the app and connect your shop again.</p>");
+    } catch (e) {
+      res.status(500).json({ error: "Failed to reset db" });
+    }
+  });
+
   app.use("/api", apiRouter);
 
   app.get('/auth/callback', (req, res) => {
