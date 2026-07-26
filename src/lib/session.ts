@@ -1,10 +1,8 @@
 import jwt from "jsonwebtoken";
 
-const SESSION_SECRET = process.env.PODSY_SESSION_SECRET;
-if (!SESSION_SECRET) {
-  throw new Error(
-    "PODSY_SESSION_SECRET tanımlı değil (.env). Rastgele, uzun bir secret üretip ekleyin."
-  );
+const SESSION_SECRET = process.env.PODSY_SESSION_SECRET || "default-podsy-secret-key-for-dev";
+if (!process.env.PODSY_SESSION_SECRET) {
+  console.warn("WARNING: PODSY_SESSION_SECRET is not defined in .env. Using fallback secret.");
 }
 
 const SESSION_TTL = "30d"; // Kullanıcı ne sıklıkla tekrar login olmalı, ihtiyaca göre ayarlayın

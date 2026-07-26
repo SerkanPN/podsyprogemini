@@ -3,10 +3,10 @@
  */
 
 import { Request, Response, NextFunction } from "express";
-import { PrismaClient, SubscriptionTier } from "@prisma/client";
+import { SubscriptionTier } from "@prisma/client";
 import { verifySession, PodsySessionPayload } from "../lib/session";
 
-const prisma = new PrismaClient();
+import { prisma } from "../../db";
 
 declare global {
   namespace Express {
@@ -43,24 +43,33 @@ export async function requireEtsyShop(
     });
   }
 
-  const shop = await prisma.shops.findUnique({
-    where: { id: session.shopId },
-    select: {
-      id: true,
-      subscription_tier: true,
-      subscription_expires_at: true,
-    },
+  const user = await prisma.users.findUnique({
+    where: { id: session.userId },
+    include: { shops: true }
   });
 
+  if (!user) {
+    return res.status(401).json({
+      error: "USER_NOT_FOUND",
+      message: "Kullanıcı hesabı bulunamadı. Lütfen mağazanızı tekrar bağlayın.",
+      redirectTo: "/connect-etsy",
+    });
+  }
+
+  const shop = user.shops && user.shops.length > 0 ? user.shops[0] : null;
   if (!shop) {
-    return res.status(401).json({ error: "SHOP_NOT_FOUND", redirectTo: "/connect-etsy" });
+    return res.status(401).json({
+      error: "SHOP_NOT_FOUND",
+      message: "Kullanıcıya bağlı aktif bir mağaza bulunamadı.",
+      redirectTo: "/connect-etsy"
+    });
   }
 
   req.podsySession = session;
   req.podsyShop = {
-      id: shop.id,
-      subscriptionTier: shop.subscription_tier,
-      subscriptionExpiresAt: shop.subscription_expires_at
+    id: shop.id,
+    subscriptionTier: shop.subscription_tier,
+    subscriptionExpiresAt: shop.subscription_expires_at
   };
   next();
 }

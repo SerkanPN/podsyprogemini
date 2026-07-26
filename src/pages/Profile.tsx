@@ -1,4 +1,4 @@
-import { User, Mail, Phone, Store, Crown, ShieldCheck, Camera, Edit2, Loader2, AlertCircle } from 'lucide-react';
+import { User, Mail, Phone, Store, Crown, ShieldCheck, Camera, Edit2, Loader2, AlertCircle, RefreshCw } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useState, useEffect } from 'react';
 
@@ -55,7 +55,11 @@ export default function Profile() {
 
   const shop = profile.shops && profile.shops.length > 0 ? profile.shops[0] : null;
   const isConnected = !!shop;
-  const userName = profile.name || profile.email.split('@')[0];
+  const shopName = shop ? (shop.shop_name || shop.shopName || "Connected Shop") : "";
+  const totalSales = shop ? (shop.transaction_sold_count ?? shop.totalSales ?? 0) : 0;
+  const createdAtDate = profile.created_at || profile.createdAt;
+  const formattedDate = createdAtDate ? new Date(createdAtDate).toLocaleDateString('tr-TR') : 'N/A';
+  const userName = (profile.name && profile.name !== "Etsy User") ? profile.name : (shopName || profile.email.split('@')[0]);
 
   return (
     <div className="p-6 max-w-5xl mx-auto space-y-6 text-zinc-100">
@@ -63,10 +67,6 @@ export default function Profile() {
       {/* Page Header */}
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Profile Settings</h1>
-        <button className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md text-sm font-medium transition-colors">
-          <Edit2 className="w-4 h-4" />
-          Edit Profile
-        </button>
       </div>
 
       {/* Hero / Banner Section */}
@@ -79,9 +79,6 @@ export default function Profile() {
             <div className="w-24 h-24 rounded-full bg-zinc-800 border-4 border-zinc-900 flex items-center justify-center overflow-hidden">
               <User className="w-10 h-10 text-zinc-400" />
             </div>
-            <button className="absolute bottom-0 right-0 p-1.5 bg-indigo-600 rounded-full text-white hover:bg-indigo-700 transition-colors opacity-0 group-hover:opacity-100 shadow-lg">
-              <Camera className="w-4 h-4" />
-            </button>
           </div>
 
           {/* Title Info */}
@@ -134,7 +131,7 @@ export default function Profile() {
               </div>
               <div>
                 <p className="text-xs text-zinc-500 mb-1">Account Created</p>
-                <p className="text-sm font-medium text-zinc-200">{new Date(profile.createdAt).toLocaleDateString()}</p>
+                <p className="text-sm font-medium text-zinc-200">{formattedDate}</p>
               </div>
             </div>
           </div>
@@ -164,23 +161,32 @@ export default function Profile() {
                   </div>
                   <div>
                     <p className="text-xs text-zinc-500 mb-1">Connected Shop</p>
-                    <p className="text-sm font-medium text-zinc-200">{shop.shopName}</p>
+                    <p className="text-sm font-medium text-zinc-200">{shopName}</p>
                   </div>
                 </div>
 
-                <div className="p-4 rounded-lg bg-indigo-500/5 border border-indigo-500/20">
+                <div className="p-4 rounded-lg bg-indigo-500/5 border border-indigo-500/20 space-y-3">
                   <p className="text-xs text-indigo-300 leading-relaxed">
-                    Your Etsy shop <strong>{shop.shopName}</strong> is successfully connected. We are actively syncing your listings (Total Sales: {shop.totalSales}).
+                    Your Etsy shop <strong>{shopName}</strong> is successfully connected. Total Sales: <strong>{totalSales}</strong>.
                   </p>
+                  <a 
+                    href="/api/etsy/auth" 
+                    className="w-full inline-flex items-center justify-center gap-2 px-4 py-2 bg-zinc-800 hover:bg-orange-600 text-white rounded-md text-sm font-medium transition-colors border border-zinc-700 hover:border-orange-500"
+                  >
+                    <RefreshCw className="w-4 h-4" /> Reconnect Etsy Shop
+                  </a>
                 </div>
               </>
             ) : (
               <div className="text-center py-4">
                 <Store className="w-8 h-8 text-zinc-600 mx-auto mb-3" />
                 <p className="text-sm text-zinc-400 mb-4">No Etsy shop connected.</p>
-                <button className="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-md text-sm font-medium transition-colors">
-                  Connect Etsy Shop
-                </button>
+                <a 
+                  href="/api/etsy/auth" 
+                  className="inline-flex items-center gap-2 px-5 py-2.5 bg-orange-600 hover:bg-orange-700 text-white rounded-md text-sm font-medium transition-colors shadow-lg shadow-orange-600/20"
+                >
+                  <Store className="w-4 h-4" /> Connect Etsy Shop
+                </a>
               </div>
             )}
           </div>

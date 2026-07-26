@@ -5,17 +5,29 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
-const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
-const adapter = new PrismaPg(pool);
+// Parse schema from DATABASE_URL ?schema= param
+const dbUrl = process.env.DATABASE_URL || "";
+let schemaName = "public";
+try {
+  const match = dbUrl.match(/[?&]schema=([^&]+)/);
+  if (match) schemaName = match[1];
+} catch (_) {}
+
+// Strip ?schema= from connection string since pg doesn't understand it
+const cleanUrl = dbUrl.replace(/[?&]schema=[^&]+/, "").replace(/\?$/, "");
+const pool = new pg.Pool({ connectionString: cleanUrl });
+const adapter = new PrismaPg(pool, { schema: schemaName });
 export const prisma = new PrismaClient({ adapter });
 
 export let defaultUserId = "";
 
 export async function ensureDefaultUser() {
-  const defaultUser = await prisma.user.upsert({
+  const defaultUser = await prisma.users.upsert({
     where: { email: "default@podsy.pro" },
     update: {},
     create: {
+      id: "00000000-0000-0000-0000-000000000000",
+      etsy_user_id: "default_user_001",
       email: "default@podsy.pro",
       name: "Default User"
     }

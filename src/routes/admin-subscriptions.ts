@@ -3,10 +3,10 @@
  */
 
 import { Router } from "express";
-import { PrismaClient, SubscriptionTier } from "@prisma/client";
+import { SubscriptionTier } from "@prisma/client";
 import { requireAdminAuth } from "../middleware/admin-auth";
 
-const prisma = new PrismaClient();
+import { prisma } from "../../db";
 const router = Router();
 
 router.use(requireAdminAuth);

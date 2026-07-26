@@ -7,9 +7,9 @@
  * ile mağaza bazlı istisna da mümkün.
  */
 
-import { PrismaClient, SubscriptionTier } from "@prisma/client";
+import { SubscriptionTier } from "@prisma/client";
 
-const prisma = new PrismaClient();
+import { prisma } from "../../db";
 
 export type QuotaKey =
   | "competitorTrackingLimit"
